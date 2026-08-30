@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Gavel, CheckSquare, Square, AlertCircle, Clock, CalendarClock, ChevronRight } from "lucide-react";
+import { Gavel, CheckSquare, Square, AlertCircle, Clock, CalendarClock, ChevronRight, AlertTriangle } from "lucide-react";
 import { fmtDate, daysUntil, todayISO } from "../lib/dataHooks.js";
 import { Badge, EmptyState } from "./ui.jsx";
 
@@ -48,6 +48,25 @@ export default function TodayBoard({ matters, hearings, tasks, clientName, onOpe
     })
     .sort((a, b) => new Date(b.hearing_date) - new Date(a.hearing_date)), [hearings]);
 
+  // Two hearings on the same date can't both be attended in person, especially
+  // across different courts or jurisdictions. Scan the next 30 days for any
+  // date carrying more than one hearing so it surfaces before it becomes a
+  // missed appearance rather than after.
+  const clashes = useMemo(() => {
+    const upcoming = hearings.filter((h) => {
+      const d = daysUntil(h.hearing_date);
+      return d !== null && d >= 0 && d <= 30;
+    });
+    const byDate = {};
+    upcoming.forEach((h) => {
+      if (!byDate[h.hearing_date]) byDate[h.hearing_date] = [];
+      byDate[h.hearing_date].push(h);
+    });
+    return Object.entries(byDate)
+      .filter(([, list]) => list.length > 1)
+      .sort((a, b) => new Date(a[0]) - new Date(b[0]));
+  }, [hearings]);
+
   const openTasks = useMemo(() => tasks
     .filter((t) => t.status !== "Completed" && t.status !== "Cancelled")
     .sort((a, b) => {
@@ -80,7 +99,7 @@ export default function TodayBoard({ matters, hearings, tasks, clientName, onOpe
 
   const nothingAtAll =
     todayHearings.length === 0 && weekHearings.length === 0 && awaitingOutcome.length === 0 &&
-    dueTasks.length === 0 && limitationRisk.length === 0 && nextActions.length === 0;
+    dueTasks.length === 0 && limitationRisk.length === 0 && nextActions.length === 0 && clashes.length === 0;
 
   if (nothingAtAll) {
     return (
@@ -103,6 +122,40 @@ export default function TodayBoard({ matters, hearings, tasks, clientName, onOpe
 
   return (
     <div>
+      {/* 0. Double-bookings — the one thing that must never be silent */}
+      {clashes.length > 0 && (
+        <Section
+          title="Same-day hearing conflicts"
+          icon={AlertTriangle}
+          accent="#6B2737"
+          count={clashes.length}
+          hint="Two or more hearings on one date"
+        >
+          <table><tbody>
+            {clashes.map(([date, list]) => (
+              <React.Fragment key={date}>
+                <tr>
+                  <td colSpan={4} style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 600, color: "#6B2737", background: "#6B273708", paddingTop: 10 }}>
+                    {fmtDate(date)} — {list.length} hearings
+                  </td>
+                </tr>
+                {list.map((h) => (
+                  <tr key={h.id} style={{ cursor: "pointer" }} onClick={() => onOpenMatter(h.matter_id)}>
+                    <td style={{ paddingLeft: 24, fontWeight: 600 }}>{titleOf(h.matter_id)}</td>
+                    <td style={{ color: "#8A8578" }}>{h.court || "Court TBD"}</td>
+                    <td colSpan={2} style={{ textAlign: "right" }}>
+                      <button onClick={(e) => { e.stopPropagation(); onEditHearing(h); }} style={{ background: "none", border: "1px solid #D9D2C2", borderRadius: 5, cursor: "pointer", color: "#6B2737", fontSize: 12, fontWeight: 600, padding: "5px 10px" }}>
+                        Reschedule
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody></table>
+        </Section>
+      )}
+
       {todayHearings.length > 0 && (
         <Section title="In court today" icon={Gavel} accent="#6B2737" count={todayHearings.length}>
           <table><tbody>
