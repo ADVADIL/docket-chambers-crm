@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Users, Briefcase, Gavel, Receipt, Plus, X, Search, ChevronRight, Trash2, Edit3, LayoutDashboard, CalendarDays, ChevronLeft, Calendar, DollarSign, Clock, AlertCircle, LogOut, Wifi, WifiOff, Printer, Download } from "lucide-react";
+import { Users, Briefcase, Gavel, Receipt, Plus, X, Search, ChevronRight, Trash2, Edit3, LayoutDashboard, CalendarDays, ChevronLeft, Calendar, DollarSign, Clock, AlertCircle, LogOut, Wifi, WifiOff, Printer, Download, Sunrise } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 import { supabase } from "../lib/supabaseClient.js";
+import { todayISO, fmtDate, daysUntil, fmtCurrency, deadlineBadge, useTable, useReadOnlyTable, insertRow, updateRow, deleteRow } from "../lib/dataHooks.js";
+import { inputStyle, Badge, EmptyState, Modal, Field, Btn, FormError, RowActions } from "./ui.jsx";
+import TodayBoard from "./TodayBoard.jsx";
+import MatterCommandCentre from "./MatterCommandCentre.jsx";
+import GlobalSearch from "./GlobalSearch.jsx";
 
 // ---------- Constants ----------
 const MATTER_STATUSES = ["Intake", "Active", "Pending Hearing", "Settlement", "Closed"];
@@ -22,6 +27,9 @@ const HEARING_OUTCOME_COLORS = {
   Disposed: "#8A8578",
 };
 
+const PRIORITY_LEVELS = ["Low", "Normal", "High", "Critical"];
+const PRIORITY_COLORS = { Low: "#8A8578", Normal: "#B08D57", High: "#8A6D3B", Critical: "#6B2737" };
+
 const BILL_STATUSES = ["Draft", "Sent", "Paid", "Overdue"];
 const BILL_COLORS = { Draft: "#8A8578", Sent: "#B08D57", Paid: "#3D5A4C", Overdue: "#6B2737" };
 
@@ -35,89 +43,6 @@ const COURTS = [
   "Madras High Court", "District Court", "High Court", "Supreme Court", "Family Court",
   "Commercial Court", "Labor Court / MOHRE", "Tax Tribunal", "Arbitration",
 ];
-
-// ---------- Utility Functions ----------
-const todayISO = () => new Date().toISOString().slice(0, 10);
-
-const fmtDate = (d) => {
-  if (!d) return "—";
-  const dt = new Date(d + "T00:00:00");
-  return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-};
-
-const daysUntil = (d) => {
-  if (!d) return null;
-  return Math.ceil((new Date(d + "T00:00:00") - new Date(todayISO() + "T00:00:00")) / 86400000);
-};
-
-const fmtCurrency = (amount, currency = "AED") => {
-  const num = Number(amount || 0);
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(num);
-  } catch {
-    return `${currency} ${num.toLocaleString()}`;
-  }
-};
-
-// ---------- Supabase-backed table hook: initial fetch + realtime sync ----------
-function useTable(table) {
-  const [items, setItems] = useState([]);
-  const [loaded, setLoaded] = useState(false);
-  const [connError, setConnError] = useState(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      const { data, error } = await supabase.from(table).select("*").order("created_at", { ascending: true });
-      if (!mounted) return;
-      if (error) setConnError(error.message);
-      else setItems(data || []);
-      setLoaded(true);
-    })();
-
-    const channel = supabase
-      .channel(`realtime:${table}`)
-      .on("postgres_changes", { event: "*", schema: "public", table }, (payload) => {
-        setItems((prev) => {
-          if (payload.eventType === "INSERT") {
-            if (prev.some((r) => r.id === payload.new.id)) return prev;
-            return [...prev, payload.new];
-          }
-          if (payload.eventType === "UPDATE") {
-            return prev.map((r) => (r.id === payload.new.id ? payload.new : r));
-          }
-          if (payload.eventType === "DELETE") {
-            return prev.filter((r) => r.id !== payload.old.id);
-          }
-          return prev;
-        });
-      })
-      .subscribe();
-
-    return () => {
-      mounted = false;
-      supabase.removeChannel(channel);
-    };
-  }, [table]);
-
-  return { items, loaded, connError };
-}
-
-async function insertRow(table, record) {
-  const { data, error } = await supabase.from(table).insert(record).select().single();
-  if (error) throw error;
-  return data;
-}
-async function updateRow(table, id, patch) {
-  const { data, error } = await supabase.from(table).update(patch).eq("id", id).select().single();
-  if (error) throw error;
-  return data;
-}
-async function deleteRow(table, id) {
-  const { error } = await supabase.from(table).delete().eq("id", id);
-  if (error) throw error;
-}
 
 // ---------- Firm letterhead settings (single row, used on invoices) ----------
 function useFirmSettings() {
@@ -256,74 +181,23 @@ function buildInvoiceHtml({ firm, party, billing, invoiceNo }) {
 }
 
 // ---------- Styled Components ----------
-const Badge = ({ text, color }) => (
-  <span style={{ background: color + "1a", color, border: `1px solid ${color}55`, borderRadius: 4, padding: "2px 9px", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, letterSpacing: 0.2, whiteSpace: "nowrap" }}>
-    {text}
-  </span>
-);
-
-const EmptyState = ({ icon: Icon, title, sub }) => (
-  <div style={{ textAlign: "center", padding: "64px 20px", color: "#8A8578" }}>
-    <Icon size={30} strokeWidth={1.3} style={{ marginBottom: 12, opacity: 0.6 }} />
-    <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 18, color: "#4A4438", marginBottom: 4 }}>{title}</div>
-    <div style={{ fontSize: 13.5 }}>{sub}</div>
-  </div>
-);
-
-const Modal = ({ title, onClose, children }) => (
-  <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,35,51,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "6vh 16px", zIndex: 50, overflowY: "auto" }}>
-    <div onClick={(e) => e.stopPropagation()} style={{ background: "#FCFAF6", borderRadius: 8, width: "100%", maxWidth: 520, border: "1px solid #E4DFD3", boxShadow: "0 20px 50px rgba(28,35,51,0.25)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #E4DFD3" }}>
-        <span style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: "#22262B" }}>{title}</span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#8A8578", padding: 4 }}>
-          <X size={18} />
-        </button>
-      </div>
-      <div style={{ padding: 20 }}>{children}</div>
-    </div>
-  </div>
-);
-
-const Field = ({ label, children, error }) => (
-  <div style={{ marginBottom: 14 }}>
-    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#6B6255", marginBottom: 5, letterSpacing: 0.3, textTransform: "uppercase" }}>{label}</label>
-    {children}
-    {error && <span style={{ fontSize: 11, color: "#6B2737", marginTop: 4, display: "block" }}>{error}</span>}
-  </div>
-);
-
-const inputStyle = {
-  width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 5,
-  border: "1px solid #D9D2C2", fontSize: 14, fontFamily: "'IBM Plex Sans', sans-serif",
-  background: "#fff", color: "#22262B", outline: "none",
-};
-
-const Btn = ({ children, onClick, variant = "primary", style, type = "button", disabled = false }) => {
-  const base = { padding: "9px 16px", borderRadius: 5, fontSize: 13.5, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "'IBM Plex Sans', sans-serif", border: "1px solid transparent", display: "inline-flex", alignItems: "center", gap: 6, opacity: disabled ? 0.5 : 1 };
-  const variants = {
-    primary: { background: "#6B2737", color: "#F7F5F0" },
-    ghost: { background: "transparent", color: "#6B2737", border: "1px solid #D9D2C2" },
-  };
-  return (
-    <button type={type} onClick={disabled ? undefined : onClick} style={{ ...base, ...variants[variant], ...style }}>
-      {children}
-    </button>
-  );
-};
-
 // ---------- Main App Component ----------
 export default function DocketCRM({ session }) {
   const clientsT = useTable("clients");
   const mattersT = useTable("matters");
   const hearingsT = useTable("hearings");
   const billingT = useTable("billing");
+  const tasksT = useTable("matter_tasks");
+  const notesT = useTable("matter_notes");
+  const auditT = useReadOnlyTable("matter_audit_log", "changed_at");
   const { firm, loaded: firmLoaded, save: saveFirm } = useFirmSettings();
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState("today");
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null);
   const [saveError, setSaveError] = useState("");
   const [invoiceRecord, setInvoiceRecord] = useState(null);
+  const [openMatterId, setOpenMatterId] = useState(null);
   const [calendarView, setCalendarView] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
 
   const clientName = useCallback((id) => clientsT.items.find((c) => c.id === id)?.name || "Unassigned", [clientsT.items]);
@@ -361,7 +235,18 @@ export default function DocketCRM({ session }) {
     try { await deleteRow(table, id); } catch (e) { console.error(e); }
   };
 
-  const allLoaded = clientsT.loaded && mattersT.loaded && hearingsT.loaded && billingT.loaded;
+  const handleToggleTask = async (t) => {
+    try {
+      await updateRow("matter_tasks", t.id, {
+        status: t.status === "Completed" ? "Open" : "Completed",
+        completed_at: t.status === "Completed" ? null : new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error("Failed to update task:", e.message || e);
+    }
+  };
+
+  const allLoaded = clientsT.loaded && mattersT.loaded && hearingsT.loaded && billingT.loaded && tasksT.loaded && notesT.loaded;
 
   const exportCurrentTab = () => {
     if (tab === "clients") {
@@ -374,9 +259,12 @@ export default function DocketCRM({ session }) {
       downloadCsv("billing.csv", ["Matter", "Description", "Amount", "Currency", "Date", "Status"], billingT.items.map((b) => [b.matter_id ? matterTitle(b.matter_id) : b.matter_label, b.description, b.amount, b.currency, b.invoice_date, b.status]));
     }
   };
-  const anyConnError = clientsT.connError || mattersT.connError || hearingsT.connError || billingT.connError;
+  const anyConnError = clientsT.connError || mattersT.connError || hearingsT.connError || billingT.connError || tasksT.connError || notesT.connError;
+
+  const openTasksCount = useMemo(() => tasksT.items.filter((t) => t.status !== "Completed" && t.status !== "Cancelled").length, [tasksT.items]);
 
   const nav = [
+    { key: "today", label: "Today", icon: Sunrise },
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "clients", label: "Clients", icon: Users, count: clientsT.items.length },
     { key: "matters", label: "Matters", icon: Briefcase, count: mattersT.items.length },
@@ -413,12 +301,24 @@ export default function DocketCRM({ session }) {
       return <div style={{ padding: 40, color: "#6B2737" }}>Could not reach the database: {anyConnError}</div>;
     }
     switch (tab) {
+      case "today":
+        return (
+          <TodayBoard
+            matters={mattersT.items}
+            hearings={hearingsT.items}
+            tasks={tasksT.items}
+            clientName={clientName}
+            onOpenMatter={(id) => setOpenMatterId(id)}
+            onEditHearing={(r) => setModal({ type: "hearings", record: r })}
+            onToggleTask={handleToggleTask}
+          />
+        );
       case "dashboard":
         return <Dashboard clientsCount={clientsT.items.length} activeMatters={activeMatters} billing={billingT.items} upcomingHearings={upcomingHearings} hearingsNeedingUpdate={hearingsNeedingUpdate} overdueInvoices={overdueInvoices} totalRevenue={totalRevenue} matterTitle={matterTitle} goto={setTab} onEditHearing={(r) => setModal({ type: "hearings", record: r })} />;
       case "clients":
         return <ClientsTable items={clientsT.items} search={search} onEdit={(r) => setModal({ type: "clients", record: r })} onDelete={(id) => handleDelete("clients", id)} />;
       case "matters":
-        return <MattersTable items={mattersT.items} search={search} clientName={clientName} onEdit={(r) => setModal({ type: "matters", record: r })} onDelete={(id) => handleDelete("matters", id)} />;
+        return <MattersTable items={mattersT.items} search={search} clientName={clientName} onEdit={(r) => setModal({ type: "matters", record: r })} onDelete={(id) => handleDelete("matters", id)} onOpen={(m) => setOpenMatterId(m.id)} />;
       case "hearings":
         return <HearingsTable items={hearingsT.items} search={search} matterTitle={matterTitle} onEdit={(r) => setModal({ type: "hearings", record: r })} onDelete={(id) => handleDelete("hearings", id)} />;
       case "calendar":
@@ -475,6 +375,15 @@ export default function DocketCRM({ session }) {
               </div>
             </div>
           </div>
+          <div style={{ marginTop: 16 }}>
+            <GlobalSearch
+              clients={clientsT.items}
+              matters={mattersT.items}
+              clientName={clientName}
+              onSelectMatter={(id) => setOpenMatterId(id)}
+              onSelectClient={(id) => { setTab("clients"); setSearch(clientsT.items.find((c) => c.id === id)?.name || ""); }}
+            />
+          </div>
         </div>
 
         <nav className="docket-sidebar-nav" style={{ padding: "14px 10px", flex: 1 }}>
@@ -506,7 +415,7 @@ export default function DocketCRM({ session }) {
             <div>
               <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 26, color: "#22262B", fontWeight: 600 }}>{nav.find((n) => n.key === tab)?.label}</div>
             </div>
-            {tab !== "dashboard" && tab !== "calendar" && (
+            {tab !== "dashboard" && tab !== "calendar" && tab !== "today" && (
               <div className="docket-header-actions" style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <div style={{ position: "relative" }}>
                   <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "#8A8578" }} />
@@ -517,6 +426,7 @@ export default function DocketCRM({ session }) {
               </div>
             )}
             {tab === "calendar" && <Btn onClick={() => setModal({ type: "hearings", record: null })}><Plus size={15} /> Add hearing</Btn>}
+            {tab === "today" && <Btn onClick={() => setModal({ type: "tasks", record: null })}><Plus size={15} /> Add task</Btn>}
           </div>
         </div>
         <div className="docket-main-content" style={{ padding: "24px 32px 40px", flex: 1, overflowY: "auto" }}>{renderContent()}</div>
@@ -524,8 +434,39 @@ export default function DocketCRM({ session }) {
 
       {modal?.type === "clients" && <ClientForm record={modal.record} error={saveError} onClose={closeModal} onSave={(r, isEdit) => handleSave("clients", clientsT, r, isEdit)} />}
       {modal?.type === "matters" && <MatterForm record={modal.record} clients={clientsT.items} error={saveError} onClose={closeModal} onSave={(r, isEdit) => handleSave("matters", mattersT, r, isEdit)} onCreateClient={(name) => insertRow("clients", { name, created_by: session.user.id })} />}
-      {modal?.type === "hearings" && <HearingForm record={modal.record} matters={mattersT.items} error={saveError} onClose={closeModal} onSave={(r, isEdit) => handleSave("hearings", hearingsT, r, isEdit)} onAddMatterFirst={() => setModal({ type: "matters", record: null })} />}
+      {modal?.type === "hearings" && <HearingForm record={modal.record} prefill={modal.prefill} matters={mattersT.items} error={saveError} onClose={closeModal} onSave={(r, isEdit) => handleSave("hearings", hearingsT, r, isEdit)} onAddMatterFirst={() => setModal({ type: "matters", record: null })} />}
       {modal?.type === "billing" && <BillingForm record={modal.record} matters={mattersT.items} error={saveError} onClose={closeModal} onSave={(r, isEdit) => handleSave("billing", billingT, r, isEdit)} />}
+      {modal?.type === "tasks" && (
+        <TaskForm
+          record={modal.record}
+          prefill={modal.prefill}
+          matters={mattersT.items}
+          error={saveError}
+          onClose={closeModal}
+          onSave={(r, isEdit) => handleSave("matter_tasks", tasksT, r, isEdit)}
+        />
+      )}
+      {openMatterId && (
+        <MatterCommandCentre
+          matter={mattersT.items.find((m) => m.id === openMatterId)}
+          client={clientsT.items.find((c) => c.id === mattersT.items.find((m) => m.id === openMatterId)?.client_id)}
+          hearings={hearingsT.items.filter((h) => h.matter_id === openMatterId)}
+          billing={billingT.items.filter((b) => b.matter_id === openMatterId)}
+          tasks={tasksT.items.filter((t) => t.matter_id === openMatterId)}
+          notes={notesT.items.filter((n) => n.matter_id === openMatterId)}
+          auditLog={auditT.items.filter((a) => a.matter_id === openMatterId)}
+          onClose={() => setOpenMatterId(null)}
+          onEditMatter={() => setModal({ type: "matters", record: mattersT.items.find((m) => m.id === openMatterId) })}
+          onAddHearing={() => setModal({ type: "hearings", record: null, prefill: { matter_id: openMatterId } })}
+          onEditHearing={(r) => setModal({ type: "hearings", record: r })}
+          onAddTask={(prefill) => setModal({ type: "tasks", record: null, prefill: { matter_id: openMatterId, ...prefill } })}
+          onEditTask={(r) => setModal({ type: "tasks", record: r })}
+          onToggleTask={handleToggleTask}
+          onDeleteTask={(id) => handleDelete("matter_tasks", id)}
+          onAddNote={(note) => insertRow("matter_notes", { ...note, matter_id: openMatterId, created_by: session.user.id })}
+          onDeleteNote={(id) => handleDelete("matter_notes", id)}
+        />
+      )}
       {invoiceRecord && (
         <InvoiceModal
           billing={invoiceRecord}
@@ -699,17 +640,6 @@ function Dashboard({ clientsCount, activeMatters, billing, upcomingHearings, hea
 }
 
 // ---------- Tables ----------
-function RowActions({ onEdit, onDelete }) {
-  return (
-    <td style={{ width: 70, textAlign: "right" }}>
-      <div className="rowbtn" style={{ display: "inline-flex", gap: 4 }}>
-        <button onClick={onEdit} style={{ background: "none", border: "none", cursor: "pointer", color: "#8A8578", padding: 4 }}><Edit3 size={14} /></button>
-        <button onClick={onDelete} style={{ background: "none", border: "none", cursor: "pointer", color: "#8A8578", padding: 4 }}><Trash2 size={14} /></button>
-      </div>
-    </td>
-  );
-}
-
 function ClientsTable({ items, search, onEdit, onDelete }) {
   const filtered = items.filter((c) => (c.name + (c.company || "") + (c.email || "")).toLowerCase().includes(search.toLowerCase()));
   if (items.length === 0) return <EmptyState icon={Users} title="No clients yet" sub="Add your first client to get started." />;
@@ -732,25 +662,37 @@ function ClientsTable({ items, search, onEdit, onDelete }) {
   );
 }
 
-function MattersTable({ items, search, clientName, onEdit, onDelete }) {
-  const filtered = items.filter((m) => (m.title + (m.practice_area || "") + clientName(m.client_id) + (m.opposing_party || "")).toLowerCase().includes(search.toLowerCase()));
+function MattersTable({ items, search, clientName, onEdit, onDelete, onOpen }) {
+  const filtered = items.filter((m) => (m.title + (m.practice_area || "") + clientName(m.client_id) + (m.opposing_party || "") + (m.case_number || "")).toLowerCase().includes(search.toLowerCase()));
   if (items.length === 0) return <EmptyState icon={Briefcase} title="No matters yet" sub="Open your first matter to get started." />;
   return (
     <div className="docket-table-scroll" style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8 }}>
       <table>
-        <thead><tr><th>Matter</th><th>Client</th><th>v. Opposing Party</th><th>Practice Area</th><th>Advocate</th><th>Status</th><th>Filed</th><th></th></tr></thead>
-        <tbody>{filtered.map((m) => (
-          <tr key={m.id}>
-            <td style={{ fontWeight: 600 }}>{m.title}</td>
-            <td>{clientName(m.client_id)}</td>
-            <td style={{ color: "#8A8578" }}>{m.opposing_party || "—"}</td>
-            <td style={{ color: "#8A8578" }}>{m.practice_area || "—"}</td>
-            <td style={{ color: "#8A8578" }}>{m.advocate || "—"}</td>
-            <td><Badge text={m.status} color={MATTER_COLORS[m.status]} /></td>
-            <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5 }}>{fmtDate(m.filing_date)}</td>
-            <RowActions onEdit={() => onEdit(m)} onDelete={() => onDelete(m.id)} />
-          </tr>
-        ))}</tbody>
+        <thead><tr><th>Matter</th><th>Client</th><th>v. Opposing Party</th><th>Practice Area</th><th>Status</th><th>Priority</th><th>Limitation</th><th>Next action</th><th></th></tr></thead>
+        <tbody>{filtered.map((m) => {
+          const limBadge = deadlineBadge(m.limitation_date);
+          const nextBadge = deadlineBadge(m.next_action_due);
+          return (
+            <tr key={m.id}>
+              <td style={{ fontWeight: 600, cursor: "pointer" }} onClick={() => onOpen(m)}>{m.title}</td>
+              <td>{clientName(m.client_id)}</td>
+              <td style={{ color: "#8A8578" }}>{m.opposing_party || "—"}</td>
+              <td style={{ color: "#8A8578" }}>{m.practice_area || "—"}</td>
+              <td><Badge text={m.status} color={MATTER_COLORS[m.status]} /></td>
+              <td>{m.priority && m.priority !== "Normal" && <Badge text={m.priority} color={PRIORITY_COLORS[m.priority]} />}</td>
+              <td>{limBadge ? <Badge text={limBadge.text} color={limBadge.color} /> : <span style={{ color: "#8A8578" }}>—</span>}</td>
+              <td>
+                {m.next_action ? (
+                  <div>
+                    <div style={{ fontSize: 12.5 }}>{m.next_action}</div>
+                    {nextBadge && <div style={{ marginTop: 3 }}><Badge text={nextBadge.text} color={nextBadge.color} /></div>}
+                  </div>
+                ) : <span style={{ color: "#8A8578" }}>—</span>}
+              </td>
+              <RowActions onEdit={() => onEdit(m)} onDelete={() => onDelete(m.id)} />
+            </tr>
+          );
+        })}</tbody>
       </table>
       {filtered.length === 0 && search && <EmptyState icon={Search} title="No results found" sub={`No matters matching "${search}"`} />}
     </div>
@@ -891,11 +833,6 @@ function CalendarView({ hearings, matterTitle, calendarView, setCalendarView, on
 }
 
 // ---------- Forms ----------
-function FormError({ error }) {
-  if (!error) return null;
-  return <div style={{ background: "#6B273712", border: "1px solid #6B273733", color: "#6B2737", borderRadius: 5, padding: "8px 12px", fontSize: 13, marginBottom: 14 }}>{error}</div>;
-}
-
 function ClientForm({ record, error, onClose, onSave }) {
   const [f, setF] = useState(record || { name: "", company: "", email: "", phone: "", notes: "" });
   const [errors, setErrors] = useState({});
@@ -924,7 +861,12 @@ function ClientForm({ record, error, onClose, onSave }) {
 }
 
 function MatterForm({ record, clients, error, onClose, onSave, onCreateClient }) {
-  const [f, setF] = useState(record || { title: "", client_id: "", practice_area: PRACTICE_AREAS[0], advocate: "", status: "Intake", filing_date: todayISO(), notes: "", opposing_party: "" });
+  const [f, setF] = useState(record || {
+    title: "", client_id: "", practice_area: PRACTICE_AREAS[0], advocate: "", status: "Intake",
+    filing_date: todayISO(), notes: "", opposing_party: "", case_number: "", court_complex: "",
+    jurisdiction: "", opposing_counsel: "", registration_date: "", priority: "Normal",
+    next_action: "", next_action_due: "", limitation_date: "",
+  });
   const initialClientName = record ? (clients.find((c) => c.id === record.client_id)?.name || "") : "";
   const [clientName, setClientName] = useState(initialClientName);
   const [clientError, setClientError] = useState("");
@@ -963,6 +905,10 @@ function MatterForm({ record, clients, error, onClose, onSave, onCreateClient })
   const handleSubmit = async () => {
     if (!validate()) return;
     const payload = { ...f };
+    // Empty-string dates aren't valid for a `date` column — store null instead.
+    for (const dateField of ["filing_date", "registration_date", "limitation_date", "next_action_due"]) {
+      if (!payload[dateField]) payload[dateField] = null;
+    }
     if (!clientName.trim()) {
       payload.client_id = null;
     } else if (!payload.client_id) {
@@ -999,8 +945,30 @@ function MatterForm({ record, clients, error, onClose, onSave, onCreateClient })
       )}
       <Field label="Practice area"><select style={inputStyle} value={f.practice_area || PRACTICE_AREAS[0]} onChange={set("practice_area")}>{PRACTICE_AREAS.map((a) => <option key={a} value={a}>{a}</option>)}</select></Field>
       <Field label="Assigned advocate"><input style={inputStyle} value={f.advocate || ""} onChange={set("advocate")} /></Field>
-      <Field label="Status"><select style={inputStyle} value={f.status} onChange={set("status")}>{MATTER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select></Field>
-      <Field label="Filing date"><input type="date" style={inputStyle} value={f.filing_date || ""} onChange={set("filing_date")} /></Field>
+      <Field label="Opposing counsel"><input style={inputStyle} value={f.opposing_counsel || ""} onChange={set("opposing_counsel")} placeholder="Advocate representing the other side" /></Field>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}><Field label="Status"><select style={inputStyle} value={f.status} onChange={set("status")}>{MATTER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select></Field></div>
+        <div style={{ flex: 1 }}><Field label="Priority"><select style={inputStyle} value={f.priority || "Normal"} onChange={set("priority")}>{PRIORITY_LEVELS.map((p) => <option key={p} value={p}>{p}</option>)}</select></Field></div>
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}><Field label="Case number"><input style={inputStyle} value={f.case_number || ""} onChange={set("case_number")} placeholder="e.g. CS 123/2026" /></Field></div>
+        <div style={{ flex: 1 }}><Field label="Jurisdiction"><input style={inputStyle} value={f.jurisdiction || ""} onChange={set("jurisdiction")} /></Field></div>
+      </div>
+      <Field label="Court complex"><input style={inputStyle} value={f.court_complex || ""} onChange={set("court_complex")} placeholder="e.g. Madras High Court, Principal Bench" /></Field>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}><Field label="Filing date"><input type="date" style={inputStyle} value={f.filing_date || ""} onChange={set("filing_date")} /></Field></div>
+        <div style={{ flex: 1 }}><Field label="Registration date"><input type="date" style={inputStyle} value={f.registration_date || ""} onChange={set("registration_date")} /></Field></div>
+      </div>
+      <Field label="Limitation date" error={undefined}>
+        <input type="date" style={inputStyle} value={f.limitation_date || ""} onChange={set("limitation_date")} />
+      </Field>
+      <div style={{ fontSize: 11.5, color: "#8A8578", marginTop: -10, marginBottom: 14 }}>
+        The deadline by which action must be taken to preserve the matter's rights. Shown on the Today Board once it approaches.
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 2 }}><Field label="Next action"><input style={inputStyle} value={f.next_action || ""} onChange={set("next_action")} placeholder="What needs to happen next" /></Field></div>
+        <div style={{ flex: 1 }}><Field label="Due"><input type="date" style={inputStyle} value={f.next_action_due || ""} onChange={set("next_action_due")} /></Field></div>
+      </div>
       <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: 70 }} value={f.notes || ""} onChange={set("notes")} /></Field>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
@@ -1010,8 +978,8 @@ function MatterForm({ record, clients, error, onClose, onSave, onCreateClient })
   );
 }
 
-function HearingForm({ record, matters, error, onClose, onSave, onAddMatterFirst }) {
-  const [f, setF] = useState(record || { matter_id: "", hearing_date: todayISO(), court: COURTS[0], notes: "", outcome: "Scheduled", order_notes: "" });
+function HearingForm({ record, prefill, matters, error, onClose, onSave, onAddMatterFirst }) {
+  const [f, setF] = useState(record || { matter_id: prefill?.matter_id || "", hearing_date: todayISO(), court: COURTS[0], notes: "", outcome: "Scheduled", order_notes: "" });
   const [errors, setErrors] = useState({});
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const validate = () => {
@@ -1111,6 +1079,52 @@ function BillingForm({ record, matters, error, onClose, onSave }) {
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
         <Btn onClick={handleSubmit}>Save Invoice</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+const TASK_STATUSES = ["Open", "In Progress", "Completed", "Cancelled"];
+
+function TaskForm({ record, prefill, matters, error, onClose, onSave }) {
+  const [f, setF] = useState(record || { matter_id: prefill?.matter_id || "", title: prefill?.title || "", description: prefill?.description || "", due_date: prefill?.due_date || "", status: "Open", priority: "Normal" });
+  const [errors, setErrors] = useState({});
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  const validate = () => {
+    const e = {};
+    if (!f.matter_id) e.matter_id = "Matter is required";
+    if (!f.title || !f.title.trim()) e.title = "Task title is required";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (!validate()) return;
+    const payload = { ...f };
+    if (!payload.due_date) payload.due_date = null;
+    onSave(payload, !!record);
+  };
+
+  return (
+    <Modal title={record ? "Edit task" : "Add task"} onClose={onClose}>
+      <FormError error={error} />
+      <Field label="Matter *" error={errors.matter_id}>
+        <select style={{ ...inputStyle, borderColor: errors.matter_id ? "#6B2737" : "#D9D2C2" }} value={f.matter_id || ""} onChange={set("matter_id")}>
+          <option value="">— Select matter —</option>
+          {matters.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+        </select>
+      </Field>
+      <Field label="Task *" error={errors.title}><input style={{ ...inputStyle, borderColor: errors.title ? "#6B2737" : "#D9D2C2" }} value={f.title} onChange={set("title")} autoFocus placeholder="e.g. Draft written statement" /></Field>
+      <Field label="Description"><textarea style={{ ...inputStyle, minHeight: 60 }} value={f.description || ""} onChange={set("description")} /></Field>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}><Field label="Due date"><input type="date" style={inputStyle} value={f.due_date || ""} onChange={set("due_date")} /></Field></div>
+        <div style={{ flex: 1 }}><Field label="Priority"><select style={inputStyle} value={f.priority || "Normal"} onChange={set("priority")}>{PRIORITY_LEVELS.map((p) => <option key={p} value={p}>{p}</option>)}</select></Field></div>
+      </div>
+      <Field label="Status"><select style={inputStyle} value={f.status || "Open"} onChange={set("status")}>{TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select></Field>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={handleSubmit}>Save Task</Btn>
       </div>
     </Modal>
   );
