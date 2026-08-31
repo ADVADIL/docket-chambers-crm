@@ -104,6 +104,7 @@ function Timeline({ notes, auditLog, onAddNote, onDeleteNote }) {
   const [body, setBody] = useState("");
   const [pinned, setPinned] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [noteError, setNoteError] = useState("");
 
   const items = useMemo(() => {
     const noteItems = notes.map((n) => ({ id: `note-${n.id}`, raw: n, date: n.created_at, kind: "note" }));
@@ -116,9 +117,12 @@ function Timeline({ notes, auditLog, onAddNote, onDeleteNote }) {
   const submitNote = async () => {
     if (!body.trim()) return;
     setSaving(true);
+    setNoteError("");
     try {
       await onAddNote({ note_type: noteType, body: body.trim(), pinned });
       setBody(""); setPinned(false); setNoteType("General"); setComposing(false);
+    } catch (e) {
+      setNoteError(e.message || "Could not save the note. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -139,6 +143,7 @@ function Timeline({ notes, auditLog, onAddNote, onDeleteNote }) {
             </label>
           </div>
           <textarea autoFocus style={{ ...inputStyle, minHeight: 70, marginBottom: 10 }} value={body} onChange={(e) => setBody(e.target.value)} placeholder="What happened, what was decided, what to remember..." />
+          {noteError && <div style={{ background: "#6B273712", border: "1px solid #6B273733", color: "#6B2737", borderRadius: 5, padding: "8px 12px", fontSize: 12.5, marginBottom: 10 }}>{noteError}</div>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <Btn variant="ghost" onClick={() => setComposing(false)}>Cancel</Btn>
             <Btn onClick={submitNote} disabled={saving || !body.trim()}>{saving ? "Saving…" : "Save note"}</Btn>

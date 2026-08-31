@@ -235,6 +235,17 @@ export default function DocketCRM({ session }) {
     try { await deleteRow(table, id); } catch (e) { console.error(e); }
   };
 
+  const handleToggleTask = async (t) => {
+    try {
+      await updateRow("matter_tasks", t.id, {
+        status: t.status === "Completed" ? "Open" : "Completed",
+        completed_at: t.status === "Completed" ? null : new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error("Failed to update task:", e.message || e);
+    }
+  };
+
   const allLoaded = clientsT.loaded && mattersT.loaded && hearingsT.loaded && billingT.loaded && tasksT.loaded && notesT.loaded;
 
   const exportCurrentTab = () => {
@@ -299,7 +310,7 @@ export default function DocketCRM({ session }) {
             clientName={clientName}
             onOpenMatter={(id) => setOpenMatterId(id)}
             onEditHearing={(r) => setModal({ type: "hearings", record: r })}
-            onToggleTask={(t) => updateRow("matter_tasks", t.id, { status: t.status === "Completed" ? "Open" : "Completed", completed_at: t.status === "Completed" ? null : new Date().toISOString() })}
+            onToggleTask={handleToggleTask}
           />
         );
       case "dashboard":
@@ -450,7 +461,7 @@ export default function DocketCRM({ session }) {
           onEditHearing={(r) => setModal({ type: "hearings", record: r })}
           onAddTask={(prefill) => setModal({ type: "tasks", record: null, prefill: { matter_id: openMatterId, ...prefill } })}
           onEditTask={(r) => setModal({ type: "tasks", record: r })}
-          onToggleTask={(t) => updateRow("matter_tasks", t.id, { status: t.status === "Completed" ? "Open" : "Completed", completed_at: t.status === "Completed" ? null : new Date().toISOString() })}
+          onToggleTask={handleToggleTask}
           onDeleteTask={(id) => handleDelete("matter_tasks", id)}
           onAddNote={(note) => insertRow("matter_notes", { ...note, matter_id: openMatterId, created_by: session.user.id })}
           onDeleteNote={(id) => handleDelete("matter_notes", id)}
