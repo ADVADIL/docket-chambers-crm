@@ -1,4 +1,4 @@
-﻿import { cleanPhoneNumber } from "../commTemplates";
+import { cleanPhoneNumber } from "../commTemplates";
 
 const GATEWAY_STORAGE_KEY = "docket_chamber_whatsapp_gateway";
 
@@ -203,3 +203,47 @@ export async function sendDirectWhatsApp({ to, message }) {
     throw err;
   }
 }
+
+/**
+ * Returns the live QR Code image URL for scanning with WhatsApp on phone
+ */
+export function getQrCodeUrl(cfg) {
+  if (!cfg) cfg = getGatewayConfig();
+  if (cfg.provider === "ultramsg" && cfg.instanceId && cfg.token) {
+    return `https://api.ultramsg.com/${cfg.instanceId.trim()}/instance/qrimage?token=${cfg.token.trim()}&t=${Date.now()}`;
+  }
+  if (cfg.provider === "whapi" && cfg.token) {
+    return `https://gate.whapi.cloud/users/login/qr?token=${encodeURIComponent(cfg.token.trim())}&t=${Date.now()}`;
+  }
+  return null;
+}
+
+/**
+ * Check if the instance is authenticated with WhatsApp on phone
+ */
+export async function checkInstanceStatus(cfg) {
+  if (!cfg) cfg = getGatewayConfig();
+  if (!cfg || !cfg.enabled) return { connected: false, status: "not_configured" };
+
+  try {
+    if (cfg.provider === "ultramsg" && cfg.instanceId && cfg.token) {
+      const res = await fetch(`https://api.ultramsg.com/${cfg.instanceId.trim()}/instance/status?token=${cfg.token.trim()}`);
+      if (res.ok) {
+        const json = await res.json();
+        const acc = json?.status?.accountStatus;
+        const isAuth = acc?.status === "authenticated" || json?.status === "authenticated";
+        return {
+          connected: isAuth,
+          status: isAuth ? "authenticated" : "scan_qr",
+          phone: acc?.phone || "",
+          profile: acc?.pushname || "Chamber WhatsApp"
+        };
+      }
+    }
+  } catch (e) {
+    console.warn("Status check failed:", e);
+  }
+
+  return { connected: isGatewayConfigured(), status: "ready" };
+}
+
