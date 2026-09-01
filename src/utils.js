@@ -23,12 +23,17 @@ export const fmtDate = (d) => {
 };
 
 export const daysUntil = (d) => {
-  if (!d) return null;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const target = new Date(d + "T00:00:00");
-  const diff = target.getTime() - now.getTime();
-  return Math.round(diff / (1000 * 60 * 60 * 24));
+  if (!d) return 0;
+  try {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const target = new Date(d.includes("T") ? d : `${d}T00:00:00`);
+    if (isNaN(target.getTime())) return 0;
+    const diff = target.getTime() - now.getTime();
+    return Math.round(diff / (1000 * 60 * 60 * 24));
+  } catch {
+    return 0;
+  }
 };
 
 export const fmtCurrency = (amount, currency = "AED") => {

@@ -59,6 +59,14 @@ function useUniversalCollection(tableName, refreshTrigger) {
     }
   }, [tableName]);
 
+  // Guaranteed timeout fallback so app never hangs on slow or blocked connections
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoaded(true);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     fetchItems();
 
@@ -155,8 +163,7 @@ export default function App() {
   const [calendarView, setCalendarView] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
 
   const [session, setSession] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [offlineBypass, setOfflineBypass] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const isConnected = isSupabaseConfigured();
   const hasWhatsAppGateway = isGatewayConfigured();
@@ -174,25 +181,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setAuthLoading(false);
-      return;
-    }
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthLoading(false);
-    });
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session) setSession(data.session);
+      }).catch(() => {});
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setAuthLoading(false);
-    });
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+      });
 
-    return () => {
-      if (subscription?.unsubscribe) subscription.unsubscribe();
-    };
+      return () => {
+        if (subscription?.unsubscribe) subscription.unsubscribe();
+      };
+    } catch (e) {}
   }, [refreshKey]);
 
   const handleSignOut = async () => {
@@ -442,20 +446,6 @@ export default function App() {
     }
   };
 
-  if (!session && !offlineBypass && isConnected) {
-    if (authLoading) {
-      return (
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#1C2333", color: "#F7F5F0", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            <Clock size={32} style={{ opacity: 0.7, animation: "spin 2s linear infinite" }} />
-            <div style={{ fontSize: 13.5, color: "#8A93B0" }}>Verifying Chambers Authentication...</div>
-          </div>
-        </div>
-      );
-    }
-    return <Auth onBypass={() => setOfflineBypass(true)} />;
-  }
-
   return (
     <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", display: "flex", minHeight: "100vh", background: "#F7F5F0", color: "#22262B" }}>
       <style>{`
@@ -630,26 +620,26 @@ export default function App() {
                 <LogOut size={14} />
               </button>
             </div>
-          ) : offlineBypass ? (
+          ) : (
             <div style={{
               marginTop: 10,
               padding: "8px 12px",
               borderRadius: 6,
-              background: "rgba(176, 141, 87, 0.15)",
-              border: "1px solid #B08D5744",
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid #2C3450",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between"
             }}>
-              <div style={{ fontSize: 10.5, color: "#E8D5B5" }}>Offline Chamber Mode</div>
+              <div style={{ fontSize: 10.5, color: "#E8D5B5" }}>Chambers Workspace</div>
               <button
-                onClick={() => setOfflineBypass(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#B08D57", fontSize: 10, textDecoration: "underline" }}
+                onClick={() => setShowAuthModal(true)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#B08D57", fontSize: 10.5, fontWeight: 600, textDecoration: "underline" }}
               >
-                Sign In
+                Counsel Sign In
               </button>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -789,6 +779,28 @@ export default function App() {
           })}
           onClose={() => setInvoicePrintModal(null)}
         />
+      )}
+
+      {/* Optional Counsel Authentication Modal */}
+      {showAuthModal && (
+        <div 
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(28, 35, 51, 0.75)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20
+          }} 
+          onClick={() => setShowAuthModal(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 440 }}>
+            <Auth onBypass={() => setShowAuthModal(false)} />
+          </div>
+        </div>
       )}
     </div>
   );
