@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Users, Briefcase, Gavel, Receipt, Plus, Search, 
   LayoutDashboard, CalendarDays, Clock, Cloud, CloudOff, Printer,
-  MessageSquare, Send, Radio, LogOut, UserCheck
+  MessageSquare, Send, Radio, LogOut, UserCheck, ExternalLink
 } from "lucide-react";
 import { getSupabaseClient, isSupabaseConfigured } from "./lib/supabase";
 import { SEED_DATA } from "./constants";
@@ -543,6 +543,33 @@ export default function App() {
               {hasWhatsAppGateway ? "Direct in-app sending active" : "Click to enable direct send"}
             </div>
           </div>
+
+          <a
+            href="https://web.whatsapp.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              marginTop: 8,
+              padding: "8px 12px",
+              borderRadius: 6,
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "rgba(37, 211, 102, 0.12)",
+              border: "1px solid rgba(37, 211, 102, 0.35)",
+              color: "#F7F5F0",
+              transition: "all 0.15s"
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37, 211, 102, 0.22)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37, 211, 102, 0.12)")}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <MessageSquare size={13} color="#25D366" />
+              <span style={{ fontSize: 11, fontWeight: 600, color: "#25D366" }}>Open WhatsApp Web</span>
+            </div>
+            <ExternalLink size={12} color="#25D366" />
+          </a>
 
           {session?.user ? (
             <div style={{

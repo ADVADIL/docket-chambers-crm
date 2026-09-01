@@ -155,9 +155,16 @@ export default function ClientCommModal({
     }
   };
 
+  const handleOpenWhatsAppWebDirect = async () => {
+    try {
+      await navigator.clipboard.writeText(customBody);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {}
+    window.open("https://web.whatsapp.com/", "_blank", "noopener,noreferrer");
+  };
+
   // Primary WhatsApp Dispatcher:
-  // 1. If user has a background gateway configured, sends in background.
-  // 2. Otherwise, opens WhatsApp Web directly in a new tab without popup blocker issues.
   const handleSendWhatsApp = async () => {
     if (hasGateway) {
       setSendingWhatsApp(true);
@@ -180,6 +187,11 @@ export default function ClientCommModal({
         setSendingWhatsApp(false);
       }
     } else {
+      const cleaned = cleanPhoneNumber(clientPhone);
+      if (!cleaned || cleaned.length < 7) {
+        handleOpenWhatsAppWebDirect();
+        return;
+      }
       const url = buildWhatsAppUrl(clientPhone, customBody);
       window.open(url, "_blank", "noopener,noreferrer");
     }
@@ -303,6 +315,9 @@ export default function ClientCommModal({
                 placeholder="client@domain.com"
               />
             </div>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: "#6B6255", background: "rgba(176, 141, 87, 0.12)", padding: "5px 10px", borderRadius: 4 }}>
+            💡 <strong>Real Number Tip:</strong> Demo sample cases have dummy numbers that are not on WhatsApp. Type your real mobile number (e.g. <code>+91 98401...</code>) to test direct chat, or click <strong>"Open WhatsApp Web Directly"</strong>.
           </div>
         </div>
 
@@ -435,6 +450,16 @@ export default function ClientCommModal({
           </div>
 
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {/* DIRECT WHATSAPP WEB BUTTON (COPIES & OPENS WEB.WHATSAPP.COM) */}
+            <Btn
+              variant="ghost"
+              onClick={handleOpenWhatsAppWebDirect}
+              style={{ borderColor: "#25D366", color: "#1C2333", fontWeight: 600 }}
+              title="Copy notice to clipboard and open WhatsApp Web directly"
+            >
+              <ExternalLink size={14} color="#25D366" /> Open WhatsApp Web Directly
+            </Btn>
+
             {/* INSTANT PHONE QR BUTTON */}
             <Btn
               variant="ghost"
@@ -449,20 +474,20 @@ export default function ClientCommModal({
               <QrCode size={14} /> {showPhoneQr ? "Hide QR" : "Scan Phone QR"}
             </Btn>
 
-            {/* PRIMARY WHATSAPP BUTTON (ALWAYS WORKS INSTANTLY) */}
+            {/* PRIMARY WHATSAPP BUTTON (SEND TO NUMBER) */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
               <Btn
                 onClick={handleSendWhatsApp}
                 disabled={sendingWhatsApp}
                 style={{ background: "#25D366", color: "#FFFFFF", border: "none", fontWeight: 600 }}
-                title="Dispatch directly to WhatsApp"
+                title="Open chat for this client phone number on WhatsApp"
               >
                 {sendingWhatsApp ? (
                   <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} />
                 ) : (
                   <MessageSquare size={14} />
                 )}
-                {sendingWhatsApp ? "Dispatching..." : "Send WhatsApp"}
+                {sendingWhatsApp ? "Dispatching..." : "Send to Number"}
               </Btn>
               <a
                 href={buildWhatsAppUrl(clientPhone, customBody)}
