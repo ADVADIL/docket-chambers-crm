@@ -1,21 +1,13 @@
-﻿import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   AlertTriangle, Clock, Calendar, CheckCircle2, 
   Briefcase, Plus, Filter, AlertCircle, ShieldAlert, ArrowUpRight
 } from "lucide-react";
+import { STATUTORY_DEADLINE_TYPES } from "../constants";
 import { fmtDate, daysUntil } from "../utils";
 import { Btn, inputStyle } from "./UI";
 
-export const STATUTORY_DEADLINE_TYPES = [
-  "Statutory Limitation for Appeal",
-  "Written Statement / Counter Affidavit",
-  "Rejoinder / Replication",
-  "Evidence by Affidavit (Trial)",
-  "Interrogatories & Discovery",
-  "Court Deposit / Cost Compliance",
-  "Written Submissions / Arguments",
-  "Caveat Renewal (90 Days)"
-];
+export { STATUTORY_DEADLINE_TYPES };
 
 export default function DeadlinesTracker({
   matters = [],

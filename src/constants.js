@@ -54,6 +54,17 @@ export const COURTS = [
   "Tax Appellate Tribunal",
 ];
 
+export const STATUTORY_DEADLINE_TYPES = [
+  "Statutory Limitation for Appeal",
+  "Written Statement / Counter Affidavit",
+  "Rejoinder / Replication",
+  "Evidence by Affidavit (Trial)",
+  "Interrogatories & Discovery",
+  "Court Deposit / Cost Compliance",
+  "Written Submissions / Arguments",
+  "Caveat Renewal (90 Days)"
+];
+
 export const SEED_DATA = {
   clients: [
     {

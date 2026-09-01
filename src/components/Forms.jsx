@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { MATTER_STATUSES, BILL_STATUSES, PRACTICE_AREAS, COURTS } from "../constants";
-import { STATUTORY_DEADLINE_TYPES } from "./DeadlinesTracker";
+import { MATTER_STATUSES, BILL_STATUSES, PRACTICE_AREAS, COURTS, STATUTORY_DEADLINE_TYPES } from "../constants";
 import { uid, todayISO } from "../utils";
 import { Modal, Field, Btn, inputStyle } from "./UI";
 
