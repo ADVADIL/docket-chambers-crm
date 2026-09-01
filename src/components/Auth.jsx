@@ -75,11 +75,7 @@ export default function Auth({ onBypass, onClose }) {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "rgba(28, 35, 51, 0.75)",
-      backdropFilter: "blur(4px)",
-      position: "fixed",
-      inset: 0,
-      zIndex: 99999,
+      background: "linear-gradient(135deg, #1C2333 0%, #252D40 50%, #161B26 100%)",
       fontFamily: "'IBM Plex Sans', sans-serif",
       padding: 20
     }}>

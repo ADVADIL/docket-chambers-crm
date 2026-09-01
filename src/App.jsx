@@ -168,6 +168,7 @@ export default function App() {
   const [calendarView, setCalendarView] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
 
   const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const isConnected = isSupabaseConfigured();
@@ -188,20 +189,32 @@ export default function App() {
   useEffect(() => {
     try {
       const supabase = getSupabaseClient();
-      if (!supabase) return;
+      if (!supabase) {
+        setAuthLoading(false);
+        return;
+      }
 
       supabase.auth.getSession().then(({ data }) => {
         if (data?.session) setSession(data.session);
-      }).catch(() => {});
+        setAuthLoading(false);
+      }).catch(() => {
+        setAuthLoading(false);
+      });
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         setSession(session);
+        setAuthLoading(false);
       });
 
+      const timer = setTimeout(() => setAuthLoading(false), 1200);
+
       return () => {
+        clearTimeout(timer);
         if (subscription?.unsubscribe) subscription.unsubscribe();
       };
-    } catch (e) {}
+    } catch (e) {
+      setAuthLoading(false);
+    }
   }, [refreshKey]);
 
   const handleSignOut = async () => {
@@ -455,6 +468,24 @@ export default function App() {
     }
   };
 
+  // Confidential Chambers Lock: Block access completely until counsel signs in
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#1C2333", color: "#F7F5F0", fontFamily: "'IBM Plex Sans', sans-serif" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #B08D57, #6B2737)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 15px rgba(0,0,0,0.25)" }}>
+            <Gavel size={22} color="#FFF" />
+          </div>
+          <div style={{ color: "#E8D5B5", fontSize: 13.5, fontWeight: 500, letterSpacing: 0.3 }}>Verifying Chambers Authentication...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   return (
     <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", display: "flex", minHeight: "100vh", background: "#F7F5F0", color: "#22262B" }}>
       <style>{`
@@ -653,41 +684,6 @@ export default function App() {
       </div>
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        {!session && (
-          <div style={{
-            background: "#FFF8E1",
-            borderBottom: "1px solid #FFE082",
-            padding: "8px 32px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            fontSize: 12,
-            color: "#6D4C41"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 14 }}>🔒</span>
-              <strong>Chambers Guest Mode (View Only):</strong>
-              <span>You are viewing chambers records in read-only mode. Deleting or modifying cases is protected.</span>
-            </div>
-            <button
-              onClick={() => setShowAuthModal(true)}
-              style={{
-                background: "#6B2737",
-                color: "#F7F5F0",
-                border: "none",
-                borderRadius: 4,
-                padding: "4px 12px",
-                fontSize: 11.5,
-                fontWeight: 600,
-                cursor: "pointer",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
-              }}
-            >
-              Sign In as Counsel
-            </button>
-          </div>
-        )}
-
         <div style={{ padding: "18px 32px 0", background: "#FCFAF6", borderBottom: "1px solid #E4DFD3" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 16 }}>
             <div>
