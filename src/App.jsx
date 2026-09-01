@@ -708,8 +708,13 @@ export default function App() {
               >
                 <MessageSquare size={14} /> Notify Client
               </Btn>
-              {tab !== "dashboard" && tab !== "calendar" && (
+              {tab !== "dashboard" && tab !== "calendar" && tab !== "deadlines" && (
                 <Btn onClick={() => setModal({ type: tab, record: null })}><Plus size={15} /> Add {tab.slice(0, -1)}</Btn>
+              )}
+              {tab === "deadlines" && (
+                <Btn onClick={() => setModal({ type: "matters", record: null })} style={{ background: "#6B2737", color: "#FFF" }}>
+                  <Plus size={15} /> Log Deadline
+                </Btn>
               )}
               {tab === "calendar" && (
                 <Btn onClick={() => setModal({ type: "hearings", record: null })}><Plus size={15} /> Schedule Hearing</Btn>
