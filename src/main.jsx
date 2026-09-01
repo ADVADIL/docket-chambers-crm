@@ -20,8 +20,18 @@ class ErrorBoundary extends React.Component {
     try {
       localStorage.clear();
       sessionStorage.clear();
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) registration.unregister();
+        });
+      }
+      if ("caches" in window) {
+        caches.keys().then((names) => {
+          for (const name of names) caches.delete(name);
+        });
+      }
     } catch (e) {}
-    window.location.reload();
+    window.location.href = window.location.origin + "?ts=" + Date.now();
   };
 
   render() {
