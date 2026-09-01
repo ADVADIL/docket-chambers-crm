@@ -3,8 +3,16 @@ import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { fmtDate, daysUntil } from "../utils";
 import { EmptyState } from "./UI";
 
-export default function CalendarView({ hearings, matterTitle, calendarView, setCalendarView, onEdit }) {
-  const { month, year } = calendarView;
+export default function CalendarView({ 
+  hearings = [], 
+  matterTitle = () => "—", 
+  calendarView = { month: new Date().getMonth(), year: new Date().getFullYear() }, 
+  setCalendarView = () => {}, 
+  onEdit 
+}) {
+  const safeHearings = Array.isArray(hearings) ? hearings : [];
+  const safeMatterTitle = typeof matterTitle === "function" ? matterTitle : () => "—";
+  const { month = new Date().getMonth(), year = new Date().getFullYear() } = calendarView || {};
   const getDaysInMonth = (m, y) => new Date(y, m + 1, 0).getDate();
   const getFirstDayOfMonth = (m, y) => new Date(y, m, 1).getDay();
   const daysInMonth = getDaysInMonth(month, year);
@@ -13,7 +21,7 @@ export default function CalendarView({ hearings, matterTitle, calendarView, setC
 
   const getHearingsForDay = (day) => {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return hearings.filter((h) => h.date === dateStr);
+    return safeHearings.filter((h) => h && h.date === dateStr);
   };
 
   const prevMonth = () => setCalendarView(month === 0 ? { month: 11, year: year - 1 } : { month: month - 1, year });
@@ -22,10 +30,11 @@ export default function CalendarView({ hearings, matterTitle, calendarView, setC
   const today = new Date();
   const isToday = (day) => day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
 
-  const monthHearings = hearings.filter((h) => {
+  const monthHearings = safeHearings.filter((h) => {
+    if (!h || !h.date) return false;
     const hDate = new Date(h.date + "T00:00:00");
-    return hDate.getMonth() === month && hDate.getFullYear() === year;
-  }).sort((a, b) => new Date(a.date) - new Date(b.date));
+    return !isNaN(hDate.getTime()) && hDate.getMonth() === month && hDate.getFullYear() === year;
+  }).sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
 
   return (
     <div style={{ display: "flex", gap: 20 }}>

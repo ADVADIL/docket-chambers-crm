@@ -17,17 +17,19 @@ export default function DeadlinesTracker({
   const [filter, setFilter] = useState("all"); // all, critical, pending, completed
   const [selectedType, setSelectedType] = useState("all");
 
+  const safeMatters = Array.isArray(matters) ? matters : [];
+
   // Compile deadlines from matters (or fallback sample deadlines if none logged yet)
   const deadlines = useMemo(() => {
     const list = [];
-    matters.forEach((m) => {
-      if (m.deadlineDate) {
+    safeMatters.forEach((m) => {
+      if (m && m.deadlineDate) {
         list.push({
           id: `dl_${m.id}`,
           matterId: m.id,
-          matterTitle: m.title,
-          caseNumber: m.caseNumber,
-          court: m.court,
+          matterTitle: m.title || "Untitled Matter",
+          caseNumber: m.caseNumber || "",
+          court: m.court || "",
           type: m.deadlineType || "Court Filing Cutoff",
           dueDate: m.deadlineDate,
           statute: m.deadlineStatute || "Statutory Limitation",
@@ -38,7 +40,7 @@ export default function DeadlinesTracker({
     });
 
     // If no custom deadlines logged yet, provide structured practice examples so the board is immediately useful!
-    if (list.length === 0 && matters.length > 0) {
+    if (list.length === 0 && safeMatters.length > 0) {
       const today = new Date();
       const addDays = (d) => {
         const date = new Date(today);

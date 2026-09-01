@@ -53,9 +53,11 @@ export function RowActions({ onEdit, onDelete, onComm, onPrint, commTitle = "Sen
   );
 }
 
-export function ClientsTable({ items, search, onEdit, onDelete, onComm }) {
-  const filtered = items.filter((c) => (c.name + (c.company || "") + (c.email || "")).toLowerCase().includes(search.toLowerCase()));
-  if (items.length === 0) return <EmptyState icon={Users} title="No clients registered" sub="Add your first client to get started." />;
+export function ClientsTable({ items = [], search = "", onEdit, onDelete, onComm }) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const query = (search || "").toLowerCase();
+  const filtered = safeItems.filter((c) => ((c.name || "") + (c.company || "") + (c.email || "")).toLowerCase().includes(query));
+  if (safeItems.length === 0) return <EmptyState icon={Users} title="No clients registered" sub="Add your first client to get started." />;
   return (
     <div style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, overflow: "hidden" }}>
       <table>
@@ -68,8 +70,8 @@ export function ClientsTable({ items, search, onEdit, onDelete, onComm }) {
               <td>{c.email || "—"}</td>
               <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5 }}>{c.phone || "—"}</td>
               <RowActions 
-                onEdit={() => onEdit(c)} 
-                onDelete={() => onDelete(c.id)} 
+                onEdit={() => onEdit && onEdit(c)} 
+                onDelete={() => onDelete && onDelete(c.id)} 
                 onComm={onComm ? () => onComm(c) : undefined}
                 commTitle="Send Client Advisory / Message"
               />
@@ -82,15 +84,18 @@ export function ClientsTable({ items, search, onEdit, onDelete, onComm }) {
   );
 }
 
-export function MattersTable({ items, search, clientName, onEdit, onDelete, onComm }) {
+export function MattersTable({ items = [], search = "", clientName = () => "—", onEdit, onDelete, onComm }) {
   const [statusFilter, setStatusFilter] = useState("All");
-  const filtered = items.filter((m) => {
-    const matchesSearch = (m.title + (m.practiceArea || "") + clientName(m.clientId)).toLowerCase().includes(search.toLowerCase());
+  const safeItems = Array.isArray(items) ? items : [];
+  const safeClientName = typeof clientName === "function" ? clientName : () => "—";
+  const query = (search || "").toLowerCase();
+  const filtered = safeItems.filter((m) => {
+    const matchesSearch = ((m.title || "") + (m.practiceArea || "") + safeClientName(m.clientId)).toLowerCase().includes(query);
     const matchesStatus = statusFilter === "All" || m.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  if (items.length === 0) return <EmptyState icon={Briefcase} title="No matters logged" sub="Open your first matter to begin tracking cases." />;
+  if (safeItems.length === 0) return <EmptyState icon={Briefcase} title="No matters logged" sub="Open your first matter to begin tracking cases." />;
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "center" }}>
@@ -152,17 +157,20 @@ export function MattersTable({ items, search, clientName, onEdit, onDelete, onCo
   );
 }
 
-export function HearingsTable({ items, search, matterTitle, onEdit, onDelete, onPrint, onComm }) {
+export function HearingsTable({ items = [], search = "", matterTitle = () => "—", onEdit, onDelete, onPrint, onComm }) {
   const [courtFilter, setCourtFilter] = useState("All");
-  const filtered = items
+  const safeItems = Array.isArray(items) ? items : [];
+  const safeTitle = typeof matterTitle === "function" ? matterTitle : () => "—";
+  const query = (search || "").toLowerCase();
+  const filtered = safeItems
     .filter((h) => {
-      const matchSearch = (matterTitle(h.matterId) + (h.court || "") + (h.notes || "")).toLowerCase().includes(search.toLowerCase());
+      const matchSearch = ((safeTitle(h.matterId) || "") + (h.court || "") + (h.notes || "")).toLowerCase().includes(query);
       const matchCourt = courtFilter === "All" || h.court === courtFilter;
       return matchSearch && matchCourt;
     })
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+    .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
 
-  if (items.length === 0) return <EmptyState icon={Gavel} title="No hearings listed" sub="Log upcoming dates to track proceedings." />;
+  if (safeItems.length === 0) return <EmptyState icon={Gavel} title="No hearings listed" sub="Log upcoming dates to track proceedings." />;
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "center" }}>
@@ -193,7 +201,7 @@ export function HearingsTable({ items, search, matterTitle, onEdit, onDelete, on
               return (
                 <tr key={h.id}>
                   <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, color: past ? "#8A8578" : "#22262B", fontWeight: 600 }}>{fmtDate(h.date)}</td>
-                  <td style={{ fontWeight: 600 }}>{matterTitle(h.matterId)}</td>
+                  <td style={{ fontWeight: 600 }}>{safeTitle(h.matterId)}</td>
                   <td style={{ color: "#8A8578" }}>{h.court || "—"}</td>
                   <td style={{ color: "#8A8578", fontSize: 12.5 }}>{h.notes || "—"}</td>
                   <td>
@@ -205,8 +213,8 @@ export function HearingsTable({ items, search, matterTitle, onEdit, onDelete, on
                     )}
                   </td>
                   <RowActions 
-                    onEdit={() => onEdit(h)} 
-                    onDelete={() => onDelete(h.id)} 
+                    onEdit={() => onEdit && onEdit(h)} 
+                    onDelete={() => onDelete && onDelete(h.id)} 
                     onComm={onComm ? () => onComm(h) : undefined}
                     commTitle="Send Hearing Notice / Outcome (WhatsApp & Email)"
                   />
@@ -221,9 +229,12 @@ export function HearingsTable({ items, search, matterTitle, onEdit, onDelete, on
   );
 }
 
-export function BillingTable({ items, search, matterTitle, onEdit, onDelete, onComm, onPrintInvoice }) {
-  const filtered = items.filter((b) => (matterTitle(b.matterId) + (b.description || "")).toLowerCase().includes(search.toLowerCase()));
-  if (items.length === 0) return <EmptyState icon={Receipt} title="No invoices found" sub="Record fee bills against matters here." />;
+export function BillingTable({ items = [], search = "", matterTitle = () => "—", onEdit, onDelete, onComm, onPrintInvoice }) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const safeTitle = typeof matterTitle === "function" ? matterTitle : () => "—";
+  const query = (search || "").toLowerCase();
+  const filtered = safeItems.filter((b) => ((safeTitle(b.matterId) || "") + (b.description || "")).toLowerCase().includes(query));
+  if (safeItems.length === 0) return <EmptyState icon={Receipt} title="No invoices found" sub="Record fee bills against matters here." />;
   return (
     <div style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, overflow: "hidden" }}>
       <table>

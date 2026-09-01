@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Search, Briefcase, Users, Gavel, Receipt, 
   ArrowRight, X, Clock, Calendar, Shield, Hash
@@ -38,33 +38,38 @@ export default function SpotlightSearch({
 
   const q = query.trim().toLowerCase();
 
+  const safeMatters = Array.isArray(matters) ? matters : [];
+  const safeClients = Array.isArray(clients) ? clients : [];
+  const safeHearings = Array.isArray(hearings) ? hearings : [];
+  const safeBilling = Array.isArray(billing) ? billing : [];
+
   // Filtered results across all 4 collections
-  const matchedMatters = q ? matters.filter((m) => 
+  const matchedMatters = q ? safeMatters.filter((m) => m && (
     (m.title && m.title.toLowerCase().includes(q)) ||
     (m.caseNumber && m.caseNumber.toLowerCase().includes(q)) ||
     (m.court && m.court.toLowerCase().includes(q)) ||
     (m.practiceArea && m.practiceArea.toLowerCase().includes(q))
-  ).slice(0, 5) : [];
+  )).slice(0, 5) : [];
 
-  const matchedClients = q ? clients.filter((c) => 
+  const matchedClients = q ? safeClients.filter((c) => c && (
     (c.name && c.name.toLowerCase().includes(q)) ||
     (c.company && c.company.toLowerCase().includes(q)) ||
     (c.email && c.email.toLowerCase().includes(q)) ||
     (c.phone && c.phone.toLowerCase().includes(q))
-  ).slice(0, 5) : [];
+  )).slice(0, 5) : [];
 
-  const matchedHearings = q ? hearings.filter((h) => 
+  const matchedHearings = q ? safeHearings.filter((h) => h && (
     (h.court && h.court.toLowerCase().includes(q)) ||
     (h.notes && h.notes.toLowerCase().includes(q)) ||
     (h.outcome && h.outcome.toLowerCase().includes(q)) ||
     (h.date && h.date.includes(q))
-  ).slice(0, 5) : [];
+  )).slice(0, 5) : [];
 
-  const matchedBilling = q ? billing.filter((b) => 
+  const matchedBilling = q ? safeBilling.filter((b) => b && (
     (b.description && b.description.toLowerCase().includes(q)) ||
     (b.status && b.status.toLowerCase().includes(q)) ||
     (b.amount && String(b.amount).includes(q))
-  ).slice(0, 5) : [];
+  )).slice(0, 5) : [];
 
   const totalResults = matchedMatters.length + matchedClients.length + matchedHearings.length + matchedBilling.length;
 

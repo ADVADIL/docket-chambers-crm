@@ -14,20 +14,26 @@ export const todayISO = () => new Date().toISOString().split("T")[0];
 export const fmtDate = (d) => {
   if (!d) return "—";
   try {
-    const [y, m, day] = d.split("-");
+    const str = typeof d === "string" ? d : (d instanceof Date ? d.toISOString().split("T")[0] : String(d));
+    const parts = str.split("T")[0].split("-");
+    if (parts.length < 3) return str;
+    const [y, m, day] = parts;
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return `${parseInt(day, 10)} ${months[parseInt(m, 10) - 1]} ${y}`;
+    const monthIdx = parseInt(m, 10) - 1;
+    if (monthIdx < 0 || monthIdx > 11) return str;
+    return `${parseInt(day, 10)} ${months[monthIdx]} ${y}`;
   } catch {
-    return d;
+    return typeof d === "string" ? d : "—";
   }
 };
 
 export const daysUntil = (d) => {
   if (!d) return 0;
   try {
+    const str = typeof d === "string" ? d : (d instanceof Date ? d.toISOString() : String(d));
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    const target = new Date(d.includes("T") ? d : `${d}T00:00:00`);
+    const target = new Date(str.includes("T") ? str : `${str}T00:00:00`);
     if (isNaN(target.getTime())) return 0;
     const diff = target.getTime() - now.getTime();
     return Math.round(diff / (1000 * 60 * 60 * 24));
@@ -37,8 +43,12 @@ export const daysUntil = (d) => {
 };
 
 export const fmtCurrency = (amount, currency = "AED") => {
-  const num = Number(amount) || 0;
-  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  try {
+    const num = Number(amount) || 0;
+    return `${currency || "AED"} ${num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  } catch {
+    return `${currency || "AED"} ${amount || 0}`;
+  }
 };
 
 export function toAppRecord(tableName, dbRow) {

@@ -6,25 +6,31 @@ import { fmtDate, daysUntil, fmtCurrency } from "../utils";
 import { Badge, EmptyState } from "./UI";
 
 export default function Dashboard({
-  clientsCount,
-  activeMatters,
-  billing,
-  upcomingHearings,
-  overdueInvoices,
-  totalRevenue,
-  matterTitle,
-  goto,
+  clientsCount = 0,
+  activeMatters = [],
+  billing = [],
+  upcomingHearings = [],
+  overdueInvoices = [],
+  totalRevenue = 0,
+  matterTitle = () => "—",
+  goto = () => {},
 }) {
+  const safeActiveMatters = Array.isArray(activeMatters) ? activeMatters : [];
+  const safeUpcomingHearings = Array.isArray(upcomingHearings) ? upcomingHearings : [];
+  const safeOverdueInvoices = Array.isArray(overdueInvoices) ? overdueInvoices : [];
+  const safeBilling = Array.isArray(billing) ? billing : [];
+  const safeMatterTitle = typeof matterTitle === "function" ? matterTitle : () => "—";
+
   const practiceData = PRACTICE_AREAS.map((p, idx) => ({
     name: p.split(" ")[0],
     fullName: p,
-    count: activeMatters.filter((m) => m.practiceArea === p).length,
+    count: safeActiveMatters.filter((m) => m && m.practiceArea === p).length,
     fill: PRACTICE_COLORS[idx % PRACTICE_COLORS.length],
   })).filter((d) => d.count > 0);
 
   const statusData = ["Intake", "Active", "Pending Hearing", "Settlement"].map((st) => ({
     name: st,
-    value: activeMatters.filter((m) => m.status === st).length,
+    value: safeActiveMatters.filter((m) => m && m.status === st).length,
     color: MATTER_COLORS[st],
   })).filter((d) => d.value > 0);
 
@@ -137,17 +143,17 @@ export default function Dashboard({
               Full Cause List <ChevronRight size={13} />
             </button>
           </div>
-          {upcomingHearings.length === 0 ? (
+          {safeUpcomingHearings.length === 0 ? (
             <EmptyState icon={Gavel} title="No hearings scheduled" sub="Add one from the Hearings tab." />
           ) : (
             <table><tbody>
-              {upcomingHearings.map((h) => {
+              {safeUpcomingHearings.map((h) => {
                 const d = daysUntil(h.date);
                 return (
                   <tr key={h.id}>
                     <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 600, width: 105 }}>{fmtDate(h.date)}</td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{matterTitle(h.matterId)}</div>
+                      <div style={{ fontWeight: 600 }}>{safeMatterTitle(h.matterId)}</div>
                       <div style={{ fontSize: 11.5, color: "#8A8578" }}>{h.court || "Court bench unassigned"}</div>
                     </td>
                     <td style={{ textAlign: "right" }}>
@@ -172,7 +178,7 @@ export default function Dashboard({
           </div>
 
           <div style={{ padding: "12px 16px", flex: 1 }}>
-            {activeMatters.filter((m) => m.deadlineDate).length === 0 ? (
+            {safeActiveMatters.filter((m) => m && m.deadlineDate).length === 0 ? (
               <div style={{ padding: "24px 12px", textAlign: "center", color: "#8A8578" }}>
                 <div style={{ fontSize: 12.5, fontWeight: 600, color: "#4A453C" }}>Track Appeal & Filing Cutoffs</div>
                 <div style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>
@@ -186,7 +192,7 @@ export default function Dashboard({
                 </button>
               </div>
             ) : (
-              activeMatters.filter((m) => m.deadlineDate).slice(0, 3).map((m) => {
+              safeActiveMatters.filter((m) => m && m.deadlineDate).slice(0, 3).map((m) => {
                 const days = daysUntil(m.deadlineDate);
                 const isUrgent = days <= 3;
                 return (

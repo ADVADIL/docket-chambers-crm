@@ -35,11 +35,12 @@ export function ClientForm({ record, onClose, onSave }) {
   );
 }
 
-export function MatterForm({ record, clients, onClose, onSave }) {
+export function MatterForm({ record, clients = [], onClose, onSave }) {
+  const safeClients = Array.isArray(clients) ? clients : [];
   const [f, setF] = useState(record || { 
     id: uid(), 
     title: "", 
-    clientId: clients[0]?.id || "", 
+    clientId: safeClients[0]?.id || "", 
     caseNumber: "",
     court: COURTS[0] || "",
     practiceArea: PRACTICE_AREAS[0], 
@@ -150,8 +151,9 @@ export function MatterForm({ record, clients, onClose, onSave }) {
   );
 }
 
-export function HearingForm({ record, matters, onClose, onSave }) {
-  const [f, setF] = useState(record || { id: uid(), matterId: matters[0]?.id || "", date: todayISO(), court: COURTS[0], notes: "" });
+export function HearingForm({ record, matters = [], onClose, onSave }) {
+  const safeMatters = Array.isArray(matters) ? matters : [];
+  const [f, setF] = useState(record || { id: uid(), matterId: safeMatters[0]?.id || "", date: todayISO(), court: COURTS[0], notes: "" });
   const [errors, setErrors] = useState({});
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -168,7 +170,7 @@ export function HearingForm({ record, matters, onClose, onSave }) {
       <Field label="Matter *" error={errors.matterId}>
         <select style={{ ...inputStyle, borderColor: errors.matterId ? "#6B2737" : "#D9D2C2" }} value={f.matterId} onChange={set("matterId")}>
           <option value="">— Select matter —</option>
-          {matters.map((m) => (<option key={m.id} value={m.id}>{m.title}</option>))}
+          {safeMatters.map((m) => (<option key={m.id} value={m.id}>{m.title}</option>))}
         </select>
       </Field>
       <div style={{ display: "flex", gap: 10 }}>
@@ -194,8 +196,9 @@ export function HearingForm({ record, matters, onClose, onSave }) {
   );
 }
 
-export function BillingForm({ record, matters, onClose, onSave }) {
-  const [f, setF] = useState(record || { id: uid(), matterId: matters[0]?.id || "", description: "", amount: "", currency: "AED", date: todayISO(), status: "Draft" });
+export function BillingForm({ record, matters = [], onClose, onSave }) {
+  const safeMatters = Array.isArray(matters) ? matters : [];
+  const [f, setF] = useState(record || { id: uid(), matterId: safeMatters[0]?.id || "", description: "", amount: "", currency: "AED", date: todayISO(), status: "Draft" });
   const [errors, setErrors] = useState({});
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 

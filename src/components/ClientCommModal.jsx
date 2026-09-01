@@ -106,9 +106,13 @@ export default function ClientCommModal({
 
   // Auto-generate text when dependencies change (if not manually edited)
   useEffect(() => {
-    if (!isManualEdit) {
-      const generated = currentTemplate.generate(templatePayload);
-      setCustomBody(generated);
+    if (!isManualEdit && currentTemplate?.generate) {
+      try {
+        const generated = currentTemplate.generate(templatePayload);
+        setCustomBody(generated || "");
+      } catch (e) {
+        console.warn("Template generation error:", e);
+      }
     }
   }, [currentTemplate, templatePayload, isManualEdit]);
 
