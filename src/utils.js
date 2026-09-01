@@ -1,4 +1,4 @@
-﻿export const uid = () => {
+export const uid = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
@@ -92,9 +92,14 @@ export function toAppRecord(tableName, dbRow) {
 
 export function toDbRecord(tableName, appRecord) {
   if (!appRecord) return appRecord;
+
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const safeId = (id) => (uuidRegex.test(id) ? id : uid());
+  const recordId = safeId(appRecord.id);
+
   if (tableName === "clients") {
     return {
-      id: appRecord.id,
+      id: recordId,
       name: appRecord.name,
       company: appRecord.company || null,
       email: appRecord.email || null,
@@ -104,9 +109,9 @@ export function toDbRecord(tableName, appRecord) {
   }
   if (tableName === "matters") {
     return {
-      id: appRecord.id,
+      id: recordId,
       title: appRecord.title,
-      client_id: appRecord.clientId || null,
+      client_id: appRecord.clientId && uuidRegex.test(appRecord.clientId) ? appRecord.clientId : null,
       practice_area: appRecord.practiceArea || null,
       advocate: appRecord.advocate || null,
       status: appRecord.status || "Intake",
@@ -120,8 +125,8 @@ export function toDbRecord(tableName, appRecord) {
   }
   if (tableName === "hearings") {
     return {
-      id: appRecord.id,
-      matter_id: appRecord.matterId || null,
+      id: recordId,
+      matter_id: appRecord.matterId && uuidRegex.test(appRecord.matterId) ? appRecord.matterId : null,
       hearing_date: appRecord.date,
       court: appRecord.court || null,
       notes: appRecord.notes || null,
@@ -131,8 +136,8 @@ export function toDbRecord(tableName, appRecord) {
   }
   if (tableName === "billing") {
     return {
-      id: appRecord.id,
-      matter_id: appRecord.matterId || null,
+      id: recordId,
+      matter_id: appRecord.matterId && uuidRegex.test(appRecord.matterId) ? appRecord.matterId : null,
       matter_label: appRecord.matterLabel || null,
       description: appRecord.description,
       amount: Number(appRecord.amount) || 0,

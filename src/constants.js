@@ -57,7 +57,7 @@ export const COURTS = [
 export const SEED_DATA = {
   clients: [
     {
-      id: "cl_1",
+      id: "a1111111-1111-4111-8111-111111111111",
       name: "Al-Mansoor International Trading LLC",
       company: "Al-Mansoor Holdings",
       email: "legal@almansoor.ae",
@@ -65,7 +65,7 @@ export const SEED_DATA = {
       notes: "Annual Retainer Client - Commercial & Cross-border arbitration.",
     },
     {
-      id: "cl_2",
+      id: "a2222222-2222-4222-8222-222222222222",
       name: "Dr. Sarah Jenkins",
       company: "Apex BioHealth Corp",
       email: "s.jenkins@apexbio.com",
@@ -73,7 +73,7 @@ export const SEED_DATA = {
       notes: "Patent dispute & IP licensing counsel.",
     },
     {
-      id: "cl_3",
+      id: "a3333333-3333-4333-8333-333333333333",
       name: "Tariq Al-Hashimi",
       company: "Private Individual",
       email: "tariq.hashimi@outlook.com",
@@ -83,9 +83,9 @@ export const SEED_DATA = {
   ],
   matters: [
     {
-      id: "mat_1",
+      id: "b1111111-1111-4111-8111-111111111111",
       title: "Al-Mansoor vs. Global Freight Logistics",
-      clientId: "cl_1",
+      clientId: "a1111111-1111-4111-8111-111111111111",
       practiceArea: "Arbitration",
       advocate: "Adv. Tariq Rahman, Senior Counsel",
       status: "Active",
@@ -93,9 +93,9 @@ export const SEED_DATA = {
       notes: "DIAC Arbitration Claim for breach of maritime delivery contract.",
     },
     {
-      id: "mat_2",
+      id: "b2222222-2222-4222-8222-222222222222",
       title: "Apex BioHealth vs. GenCore Pharma Inc.",
-      clientId: "cl_2",
+      clientId: "a2222222-2222-4222-8222-222222222222",
       practiceArea: "Intellectual Property",
       advocate: "Adv. Sarah Miller",
       status: "Pending Hearing",
@@ -103,9 +103,9 @@ export const SEED_DATA = {
       notes: "Patent infringement injunction application.",
     },
     {
-      id: "mat_3",
+      id: "b3333333-3333-4333-8333-333333333333",
       title: "Al-Hashimi Estate Partition Suit",
-      clientId: "cl_3",
+      clientId: "a3333333-3333-4333-8333-333333333333",
       practiceArea: "Real Estate",
       advocate: "Adv. Fatima Noor",
       status: "Intake",
@@ -115,22 +115,22 @@ export const SEED_DATA = {
   ],
   hearings: [
     {
-      id: "h_1",
-      matterId: "mat_1",
+      id: "c1111111-1111-4111-8111-111111111111",
+      matterId: "b1111111-1111-4111-8111-111111111111",
       date: "2026-08-30",
       court: "Arbitration Tribunal (DIAC / ICC)",
       notes: "Cross-examination of Claimant's Quantum Expert witness.",
     },
     {
-      id: "h_2",
-      matterId: "mat_2",
+      id: "c2222222-2222-4222-8222-222222222222",
+      matterId: "b2222222-2222-4222-8222-222222222222",
       date: "2026-09-02",
       court: "High Court / Court of Appeal",
       notes: "Oral arguments on temporary injunction application.",
     },
     {
-      id: "h_3",
-      matterId: "mat_3",
+      id: "c3333333-3333-4333-8333-333333333333",
+      matterId: "b3333333-3333-4333-8333-333333333333",
       date: "2026-09-14",
       court: "District Court / Court of First Instance",
       notes: "First hearing for filing Written Statement & Preliminary Objections.",
@@ -138,8 +138,8 @@ export const SEED_DATA = {
   ],
   billing: [
     {
-      id: "b_1",
-      matterId: "mat_1",
+      id: "d1111111-1111-4111-8111-111111111111",
+      matterId: "b1111111-1111-4111-8111-111111111111",
       description: "Arbitration Filing & Statement of Claim drafting",
       amount: "35000",
       currency: "AED",
@@ -147,8 +147,8 @@ export const SEED_DATA = {
       status: "Paid",
     },
     {
-      id: "b_2",
-      matterId: "mat_2",
+      id: "d2222222-2222-4222-8222-222222222222",
+      matterId: "b2222222-2222-4222-8222-222222222222",
       description: "Senior Counsel opinion & injunction brief preparation",
       amount: "18500",
       currency: "AED",
@@ -156,8 +156,8 @@ export const SEED_DATA = {
       status: "Sent",
     },
     {
-      id: "b_3",
-      matterId: "mat_3",
+      id: "d3333333-3333-4333-8333-333333333333",
+      matterId: "b3333333-3333-4333-8333-333333333333",
       description: "Retainer deposit & Title verification search report",
       amount: "8000",
       currency: "AED",
