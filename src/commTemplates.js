@@ -1,4 +1,4 @@
-﻿import { fmtDate, fmtCurrency } from "./utils";
+import { fmtDate, fmtCurrency } from "./utils";
 
 /**
  * Clean phone numbers to international standard format for wa.me links
@@ -18,6 +18,15 @@ export function cleanPhoneNumber(phone) {
 }
 
 export function buildWhatsAppUrl(phone, text) {
+  const number = cleanPhoneNumber(phone);
+  const encoded = encodeURIComponent(text || "");
+  if (number) {
+    return `https://web.whatsapp.com/send?phone=${number}&text=${encoded}`;
+  }
+  return `https://web.whatsapp.com/send?text=${encoded}`;
+}
+
+export function buildWaMeUrl(phone, text) {
   const number = cleanPhoneNumber(phone);
   const encoded = encodeURIComponent(text || "");
   if (number) {

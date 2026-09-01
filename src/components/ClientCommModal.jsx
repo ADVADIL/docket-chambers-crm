@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Send, MessageSquare, Mail, Copy, Check, Printer, 
   ExternalLink, Sparkles, AlertCircle, RefreshCw, User, Phone, AtSign,
@@ -9,6 +9,7 @@ import { Modal, Btn, Field, inputStyle } from "./UI";
 import { 
   COMM_TEMPLATES, 
   buildWhatsAppUrl, 
+  buildWaMeUrl,
   buildMailtoUrl, 
   cleanPhoneNumber 
 } from "../commTemplates";
@@ -121,7 +122,7 @@ export default function ClientCommModal({
   const generateQrCode = async () => {
     setGeneratingQr(true);
     try {
-      const targetUrl = buildWhatsAppUrl(clientPhone, customBody);
+      const targetUrl = buildWaMeUrl(clientPhone, customBody);
       const dataUrl = await QRCode.toDataURL(targetUrl, {
         width: 260,
         margin: 2,
@@ -156,7 +157,7 @@ export default function ClientCommModal({
 
   // Primary WhatsApp Dispatcher:
   // 1. If user has a background gateway configured, sends in background.
-  // 2. Otherwise, opens WhatsApp Web in a neat floating sidecar window (zero tab redirect).
+  // 2. Otherwise, opens WhatsApp Web directly in a new tab without popup blocker issues.
   const handleSendWhatsApp = async () => {
     if (hasGateway) {
       setSendingWhatsApp(true);
@@ -179,17 +180,8 @@ export default function ClientCommModal({
         setSendingWhatsApp(false);
       }
     } else {
-      // Seamless sidecar popup: doesn't replace Docket CRM tab
       const url = buildWhatsAppUrl(clientPhone, customBody);
-      const width = 960;
-      const height = 750;
-      const left = (window.screen.width - width) / 2;
-      const top = (window.screen.height - height) / 2;
-      window.open(
-        url,
-        "DocketWhatsAppDispatch",
-        `width=${width},height=${height},top=${top},left=${left},status=no,menubar=no,toolbar=no`
-      );
+      window.open(url, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -401,10 +393,10 @@ export default function ClientCommModal({
                 Point Phone Camera at QR Code
               </div>
               <div style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5, marginBottom: 8 }}>
-                Your phone camera will instantly recognize this legal notice and open WhatsApp with <strong>{clientPhone || "your client"}</strong> ready to send!
+                Open your <strong>phone's normal CAMERA app</strong> (the photo camera) and point at this QR code. A yellow button will appear on your phone screen: <strong>"Open in WhatsApp"</strong>.
               </div>
-              <div style={{ fontSize: 11, color: "#8A8578" }}>
-                ✓ Zero logins, zero tokens, zero setup. Works directly with your phone.
+              <div style={{ fontSize: 11.5, color: "#B71C1C", background: "#FFEBEE", padding: "4px 8px", borderRadius: 4, display: "inline-block" }}>
+                ⚠️ Do NOT scan inside WhatsApp Linked Devices. Use your phone's standard photo camera.
               </div>
             </div>
 
@@ -458,19 +450,29 @@ export default function ClientCommModal({
             </Btn>
 
             {/* PRIMARY WHATSAPP BUTTON (ALWAYS WORKS INSTANTLY) */}
-            <Btn
-              onClick={handleSendWhatsApp}
-              disabled={sendingWhatsApp}
-              style={{ background: "#25D366", color: "#FFFFFF", border: "none", fontWeight: 600 }}
-              title="Dispatch directly to WhatsApp"
-            >
-              {sendingWhatsApp ? (
-                <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} />
-              ) : (
-                <MessageSquare size={14} />
-              )}
-              {sendingWhatsApp ? "Dispatching..." : "Send WhatsApp"}
-            </Btn>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <Btn
+                onClick={handleSendWhatsApp}
+                disabled={sendingWhatsApp}
+                style={{ background: "#25D366", color: "#FFFFFF", border: "none", fontWeight: 600 }}
+                title="Dispatch directly to WhatsApp"
+              >
+                {sendingWhatsApp ? (
+                  <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} />
+                ) : (
+                  <MessageSquare size={14} />
+                )}
+                {sendingWhatsApp ? "Dispatching..." : "Send WhatsApp"}
+              </Btn>
+              <a
+                href={buildWhatsAppUrl(clientPhone, customBody)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 10, color: "#8A8578", marginTop: 2, textDecoration: "underline" }}
+              >
+                Direct link fallback
+              </a>
+            </div>
 
             <Btn
               onClick={handleOpenEmail}
