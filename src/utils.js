@@ -65,8 +65,14 @@ export function toAppRecord(tableName, dbRow) {
       notes: dbRow.notes || "",
       opposingParty: dbRow.opposing_party || dbRow.opposingParty || "",
       caseNumber: dbRow.case_number || dbRow.caseNumber || "",
-      courtComplex: dbRow.court_complex || dbRow.courtComplex || "",
+      court: dbRow.court || dbRow.court_complex || "",
+      courtComplex: dbRow.court_complex || dbRow.court || "",
       priority: dbRow.priority || "Normal",
+      deadlineDate: dbRow.deadline_date || dbRow.deadlineDate || "",
+      deadlineType: dbRow.deadline_type || dbRow.deadlineType || "",
+      deadlineStatute: dbRow.deadline_statute || dbRow.deadlineStatute || "",
+      deadlineNotes: dbRow.deadline_notes || dbRow.deadlineNotes || "",
+      deadlineCompleted: dbRow.deadline_completed || dbRow.deadlineCompleted || false,
     };
   }
   if (tableName === "hearings") {
@@ -124,7 +130,7 @@ export function toDbRecord(tableName, appRecord) {
       notes: appRecord.notes || null,
       opposing_party: appRecord.opposingParty || null,
       case_number: appRecord.caseNumber || null,
-      court_complex: appRecord.courtComplex || null,
+      court_complex: appRecord.court || appRecord.courtComplex || null,
       priority: appRecord.priority || "Normal",
     };
   }
