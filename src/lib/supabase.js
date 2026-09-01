@@ -3,8 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 const STORAGE_CONFIG_KEY = "docket_chamber_supabase_config";
 
 export function getStoredConfig() {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL;
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const envUrl = 
+    import.meta.env.VITE_SUPABASE_URL ||
+    import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
+    import.meta.env.SUPABASE_URL;
+
+  const envKey = 
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    import.meta.env.SUPABASE_ANON_KEY;
 
   if (envUrl && envKey && !envUrl.includes("your-project-ref")) {
     return { url: envUrl, key: envKey, source: "env" };
@@ -20,6 +27,10 @@ export function getStoredConfig() {
     }
   } catch (e) {
     console.warn("Failed to read stored Supabase config:", e);
+  }
+
+  if (envUrl && !envUrl.includes("your-project-ref")) {
+    return { url: envUrl, key: envKey || "", source: "partial_env" };
   }
 
   return { url: "", key: "", source: "none" };
