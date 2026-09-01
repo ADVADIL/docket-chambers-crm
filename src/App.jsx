@@ -14,6 +14,8 @@ import CalendarView from "./components/CalendarView";
 import { ClientForm, MatterForm, HearingForm, BillingForm } from "./components/Forms";
 import ChamberConfigModal from "./components/ChamberConfigModal";
 import ClientCommModal from "./components/ClientCommModal";
+import WhatsAppConfigModal from "./components/WhatsAppConfigModal";
+import { isGatewayConfigured } from "./lib/whatsappGateway";
 
 function useUniversalCollection(tableName, refreshTrigger) {
   const [items, setItems] = useState([]);
@@ -143,9 +145,11 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [commModal, setCommModal] = useState(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showWhatsAppConfigModal, setShowWhatsAppConfigModal] = useState(false);
   const [calendarView, setCalendarView] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
 
   const isConnected = isSupabaseConfigured();
+  const hasWhatsAppGateway = isGatewayConfigured();
 
   const clientName = useCallback((id) => {
     const client = clientsC.items.find((c) => c.id === id);
@@ -465,6 +469,30 @@ export default function App() {
               {isConnected ? "Real-time sync across laptops" : "Click to connect Supabase"}
             </div>
           </div>
+
+          <div 
+            onClick={() => setShowWhatsAppConfigModal(true)}
+            style={{
+              marginTop: 8,
+              padding: "10px 12px", borderRadius: 6, cursor: "pointer",
+              background: hasWhatsAppGateway ? "rgba(37, 211, 102, 0.18)" : "rgba(176, 141, 87, 0.15)",
+              border: `1px solid ${hasWhatsAppGateway ? "#25D366" : "#B08D57"}44`,
+              transition: "all 0.15s"
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = hasWhatsAppGateway ? "rgba(37, 211, 102, 0.28)" : "rgba(176, 141, 87, 0.25)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = hasWhatsAppGateway ? "rgba(37, 211, 102, 0.18)" : "rgba(176, 141, 87, 0.15)")}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: hasWhatsAppGateway ? "#7DD3A7" : "#E8D5B5", display: "flex", alignItems: "center", gap: 5 }}>
+                <MessageSquare size={13} />
+                {hasWhatsAppGateway ? "WhatsApp In-App" : "WhatsApp Web Link"}
+              </span>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: hasWhatsAppGateway ? "#48C78E" : "#B08D57" }} />
+            </div>
+            <div style={{ fontSize: 10, color: "#8A93B0" }}>
+              {hasWhatsAppGateway ? "Direct in-app sending active" : "Click to enable direct send"}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -536,6 +564,7 @@ export default function App() {
           clients={clientsC.items} 
           matters={mattersC.items} 
           onClose={() => setCommModal(null)} 
+          onOpenGatewayConfig={() => setShowWhatsAppConfigModal(true)}
         />
       )}
 
@@ -543,6 +572,13 @@ export default function App() {
         <ChamberConfigModal 
           onClose={() => setShowConfigModal(false)} 
           onSaved={() => { triggerReload(); setShowConfigModal(false); }} 
+        />
+      )}
+
+      {showWhatsAppConfigModal && (
+        <WhatsAppConfigModal 
+          onClose={() => setShowWhatsAppConfigModal(false)} 
+          onSaved={() => { triggerReload(); setShowWhatsAppConfigModal(false); }} 
         />
       )}
     </div>
