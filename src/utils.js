@@ -130,7 +130,7 @@ export function toDbRecord(tableName, appRecord) {
       hearing_date: appRecord.date,
       court: appRecord.court || null,
       notes: appRecord.notes || null,
-      outcome: appRecord.outcome || null,
+      outcome: appRecord.outcome || "Scheduled",
       order_notes: appRecord.orderNotes || null,
     };
   }
