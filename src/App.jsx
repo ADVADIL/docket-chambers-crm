@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Users, Briefcase, Gavel, Receipt, Plus, Search, 
   LayoutDashboard, CalendarDays, Clock, Cloud, CloudOff, Printer,
-  MessageSquare, Send, Radio
+  MessageSquare, Send, Radio, LogOut, UserCheck
 } from "lucide-react";
 import { getSupabaseClient, isSupabaseConfigured } from "./lib/supabase";
 import { SEED_DATA } from "./constants";
@@ -16,6 +16,7 @@ import ChamberConfigModal from "./components/ChamberConfigModal";
 import ClientCommModal from "./components/ClientCommModal";
 import WhatsAppConfigModal from "./components/WhatsAppConfigModal";
 import { isGatewayConfigured } from "./lib/whatsappGateway";
+import Auth from "./components/Auth";
 
 function useUniversalCollection(tableName, refreshTrigger) {
   const [items, setItems] = useState([]);
@@ -148,8 +149,43 @@ export default function App() {
   const [showWhatsAppConfigModal, setShowWhatsAppConfigModal] = useState(false);
   const [calendarView, setCalendarView] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
 
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [offlineBypass, setOfflineBypass] = useState(false);
+
   const isConnected = isSupabaseConfigured();
   const hasWhatsAppGateway = isGatewayConfigured();
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      if (subscription?.unsubscribe) subscription.unsubscribe();
+    };
+  }, [refreshKey]);
+
+  const handleSignOut = async () => {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setSession(null);
+    setOfflineBypass(false);
+  };
 
   const clientName = useCallback((id) => {
     const client = clientsC.items.find((c) => c.id === id);
@@ -376,6 +412,20 @@ export default function App() {
     }
   };
 
+  if (!session && !offlineBypass && isConnected) {
+    if (authLoading) {
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#1C2333", color: "#F7F5F0", fontFamily: "'IBM Plex Sans', sans-serif" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <Clock size={32} style={{ opacity: 0.7, animation: "spin 2s linear infinite" }} />
+            <div style={{ fontSize: 13.5, color: "#8A93B0" }}>Verifying Chambers Authentication...</div>
+          </div>
+        </div>
+      );
+    }
+    return <Auth onBypass={() => setOfflineBypass(true)} />;
+  }
+
   return (
     <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", display: "flex", minHeight: "100vh", background: "#F7F5F0", color: "#22262B" }}>
       <style>{`
@@ -493,6 +543,56 @@ export default function App() {
               {hasWhatsAppGateway ? "Direct in-app sending active" : "Click to enable direct send"}
             </div>
           </div>
+
+          {session?.user ? (
+            <div style={{
+              marginTop: 10,
+              padding: "10px 12px",
+              borderRadius: 6,
+              background: "rgba(0,0,0,0.3)",
+              border: "1px solid #2C3450",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}>
+              <div style={{ overflow: "hidden", marginRight: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#F7F5F0", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                  {session.user.email}
+                </div>
+                <div style={{ fontSize: 9.5, color: "#7DD3A7", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                  <UserCheck size={11} /> Authenticated Counsel
+                </div>
+              </div>
+              <button
+                onClick={handleSignOut}
+                title="Sign Out of Chambers"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#8A93B0", padding: 4, display: "flex", alignItems: "center", borderRadius: 4 }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#FFCDD2")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#8A93B0")}
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : offlineBypass ? (
+            <div style={{
+              marginTop: 10,
+              padding: "8px 12px",
+              borderRadius: 6,
+              background: "rgba(176, 141, 87, 0.15)",
+              border: "1px solid #B08D5744",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}>
+              <div style={{ fontSize: 10.5, color: "#E8D5B5" }}>Offline Chamber Mode</div>
+              <button
+                onClick={() => setOfflineBypass(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#B08D57", fontSize: 10, textDecoration: "underline" }}
+              >
+                Sign In
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
