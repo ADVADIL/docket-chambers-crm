@@ -17,6 +17,9 @@ import ClientCommModal from "./components/ClientCommModal";
 import WhatsAppConfigModal from "./components/WhatsAppConfigModal";
 import { isGatewayConfigured } from "./lib/whatsappGateway";
 import Auth from "./components/Auth";
+import DeadlinesTracker from "./components/DeadlinesTracker";
+import SpotlightSearch from "./components/SpotlightSearch";
+import InvoicePrintModal from "./components/InvoicePrintModal";
 
 function useUniversalCollection(tableName, refreshTrigger) {
   const [items, setItems] = useState([]);
@@ -147,6 +150,8 @@ export default function App() {
   const [commModal, setCommModal] = useState(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showWhatsAppConfigModal, setShowWhatsAppConfigModal] = useState(false);
+  const [showSpotlight, setShowSpotlight] = useState(false);
+  const [invoicePrintModal, setInvoicePrintModal] = useState(null);
   const [calendarView, setCalendarView] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
 
   const [session, setSession] = useState(null);
@@ -155,6 +160,18 @@ export default function App() {
 
   const isConnected = isSupabaseConfigured();
   const hasWhatsAppGateway = isGatewayConfigured();
+
+  // Global Ctrl+K / Cmd+K Spotlight Search Shortcut
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setShowSpotlight((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -305,7 +322,8 @@ export default function App() {
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "clients", label: "Clients", icon: Users, count: clientsC.items.length },
     { key: "matters", label: "Matters", icon: Briefcase, count: mattersC.items.length },
-    { key: "hearings", label: "Hearings", icon: Gavel, count: hearingsC.items.length },
+    { key: "hearings", label: "Hearings", icon: Gavel, count: upcomingHearings.length },
+    { key: "deadlines", label: "Deadlines", icon: Clock },
     { key: "calendar", label: "Calendar", icon: CalendarDays },
     { key: "billing", label: "Billing", icon: Receipt, count: billingC.items.length },
   ];
@@ -386,6 +404,17 @@ export default function App() {
             onComm={openHearingComm}
           />
         );
+      case "deadlines":
+        return (
+          <DeadlinesTracker
+            matters={mattersC.items}
+            onOpenMatter={(id) => {
+              const m = mattersC.items.find((x) => x.id === id);
+              if (m) setModal({ type: "matters", record: m });
+            }}
+            onAddDeadline={() => setModal({ type: "matters" })}
+          />
+        );
       case "calendar":
         return (
           <CalendarView 
@@ -405,6 +434,7 @@ export default function App() {
             onEdit={(r) => setModal({ type: "billing", record: r })} 
             onDelete={(id) => handleDelete(billingC, id)} 
             onComm={openBillComm}
+            onPrintInvoice={(b) => setInvoicePrintModal(b)}
           />
         );
       default:
@@ -635,16 +665,40 @@ export default function App() {
                 {tab === "clients" && "Client retainers, companies, and direct contact details"}
                 {tab === "matters" && "Case records, assigned advocates, and procedural stages"}
                 {tab === "hearings" && "Daily cause list, court benches, and hearing agenda"}
+                {tab === "deadlines" && "Statutory limitation periods, appeal cutoffs, and mandatory filing dates"}
                 {tab === "calendar" && "Monthly court hearings diary and deadlines"}
                 {tab === "billing" && "Professional fee notes, invoices, and payment tracking"}
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              {tab !== "dashboard" && tab !== "calendar" && (
+              {/* Universal Spotlight Search Trigger */}
+              <button
+                onClick={() => setShowSpotlight(true)}
+                title="Universal search across all cases, clients, and fee notes (Ctrl+K)"
+                style={{
+                  background: "#FFFFFF",
+                  border: "1px solid #D9D2C2",
+                  borderRadius: 6,
+                  padding: "6px 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  cursor: "pointer",
+                  fontSize: 12,
+                  color: "#6B6255",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)"
+                }}
+              >
+                <Search size={13} color="#B08D57" />
+                <span>Spotlight</span>
+                <span style={{ background: "#F4F0E8", border: "1px solid #E4DFD3", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 700, color: "#8A8578" }}>Ctrl K</span>
+              </button>
+
+              {tab !== "dashboard" && tab !== "calendar" && tab !== "deadlines" && (
                 <div style={{ position: "relative" }}>
                   <Search size={14} style={{ position: "absolute", left: 10, top: 9, color: "#8A8578" }} />
-                  <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inputStyle, width: 200, paddingLeft: 30 }} />
+                  <input placeholder="Filter table..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inputStyle, width: 170, paddingLeft: 30 }} />
                 </div>
               )}
               {tab === "hearings" && (
@@ -706,6 +760,34 @@ export default function App() {
         <WhatsAppConfigModal 
           onClose={() => setShowWhatsAppConfigModal(false)} 
           onSaved={() => { triggerReload(); setShowWhatsAppConfigModal(false); }} 
+        />
+      )}
+
+      {/* Universal Chambers Spotlight Modal (Ctrl+K) */}
+      <SpotlightSearch
+        isOpen={showSpotlight}
+        onClose={() => setShowSpotlight(false)}
+        matters={mattersC.items}
+        clients={clientsC.items}
+        hearings={hearingsC.items}
+        billing={billingC.items}
+        onSelectResult={(collection, item) => {
+          setShowSpotlight(false);
+          setTab(collection);
+          setModal({ type: collection, record: item });
+        }}
+      />
+
+      {/* Formal Chambers Fee Note & Tax Invoice Generator */}
+      {invoicePrintModal && (
+        <InvoicePrintModal
+          bill={invoicePrintModal}
+          matter={mattersC.items.find((m) => m.id === invoicePrintModal.matterId)}
+          client={clientsC.items.find((c) => {
+            const m = mattersC.items.find((x) => x.id === invoicePrintModal.matterId);
+            return m && c.id === m.clientId;
+          })}
+          onClose={() => setInvoicePrintModal(null)}
         />
       )}
     </div>

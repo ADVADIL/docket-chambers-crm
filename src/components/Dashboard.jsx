@@ -127,8 +127,9 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Cause List Highlight */}
-      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 20 }}>
+      {/* Cause List & Statutory Deadlines Highlights */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 20 }}>
+        {/* Cause List Highlight */}
         <div style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, overflow: "hidden" }}>
           <div style={{ padding: "14px 18px", borderBottom: "1px solid #E4DFD3", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 16, fontWeight: 600 }}>Priority Court Appearances</div>
@@ -159,19 +160,49 @@ export default function Dashboard({
           )}
         </div>
 
-        {/* Realization Trend */}
-        <div style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, padding: 20 }}>
-          <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 16, fontWeight: 600, marginBottom: 14 }}>Realization Trend (H1)</div>
-          <div style={{ width: "100%", height: 180 }}>
-            <ResponsiveContainer>
-              <LineChart data={revenueData} margin={{ top: 5, right: 10, left: -15, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#EFEBE1" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#8A8578" }} />
-                <YAxis tick={{ fontSize: 10, fill: "#8A8578" }} />
-                <Tooltip contentStyle={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 6, fontSize: 12 }} />
-                <Line type="monotone" dataKey="amount" stroke="#6B2737" strokeWidth={2.5} dot={{ r: 4, fill: "#B08D57" }} />
-              </LineChart>
-            </ResponsiveContainer>
+        {/* Statutory Limitation & Filing Deadlines */}
+        <div style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "14px 18px", borderBottom: "1px solid #E4DFD3", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FBF9F4" }}>
+            <div style={{ fontFamily: "'Source Serif 4', serif", fontSize: 16, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, color: "#6B2737" }}>
+              <Clock size={16} /> Statutory Deadlines & Limitation
+            </div>
+            <button onClick={() => goto("deadlines")} style={{ background: "none", border: "none", color: "#6B2737", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
+              Deadlines Board <ChevronRight size={13} />
+            </button>
+          </div>
+
+          <div style={{ padding: "12px 16px", flex: 1 }}>
+            {activeMatters.filter((m) => m.deadlineDate).length === 0 ? (
+              <div style={{ padding: "24px 12px", textAlign: "center", color: "#8A8578" }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "#4A453C" }}>Track Appeal & Filing Cutoffs</div>
+                <div style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>
+                  Log statutory limitations for appeal, written statements, and discovery under the Deadlines tracker.
+                </div>
+                <button
+                  onClick={() => goto("deadlines")}
+                  style={{ marginTop: 12, background: "rgba(107, 39, 55, 0.08)", border: "1px solid #6B273744", color: "#6B2737", padding: "6px 12px", borderRadius: 4, fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Open Deadlines Board
+                </button>
+              </div>
+            ) : (
+              activeMatters.filter((m) => m.deadlineDate).slice(0, 3).map((m) => {
+                const days = daysUntil(m.deadlineDate);
+                const isUrgent = days <= 3;
+                return (
+                  <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #EFEBE1" }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 12.5, color: "#1C2333" }}>{m.title}</div>
+                      <div style={{ fontSize: 11, color: "#8A8578" }}>{m.deadlineType || "Court Filing Cutoff"}</div>
+                    </div>
+                    <Badge 
+                      text={days < 0 ? "OVERDUE" : days === 0 ? "DUE TODAY" : `Due ${days}d`} 
+                      color={isUrgent ? "#C62828" : "#B08D57"} 
+                    />
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

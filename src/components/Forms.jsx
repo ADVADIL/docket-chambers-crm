@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { MATTER_STATUSES, BILL_STATUSES, PRACTICE_AREAS, COURTS } from "../constants";
+import { STATUTORY_DEADLINE_TYPES } from "./DeadlinesTracker";
 import { uid, todayISO } from "../utils";
 import { Modal, Field, Btn, inputStyle } from "./UI";
 
@@ -36,7 +37,21 @@ export function ClientForm({ record, onClose, onSave }) {
 }
 
 export function MatterForm({ record, clients, onClose, onSave }) {
-  const [f, setF] = useState(record || { id: uid(), title: "", clientId: clients[0]?.id || "", practiceArea: PRACTICE_AREAS[0], advocate: "", status: "Intake", filingDate: todayISO(), notes: "" });
+  const [f, setF] = useState(record || { 
+    id: uid(), 
+    title: "", 
+    clientId: clients[0]?.id || "", 
+    caseNumber: "",
+    court: COURTS[0] || "",
+    practiceArea: PRACTICE_AREAS[0], 
+    advocate: "", 
+    status: "Intake", 
+    filingDate: todayISO(), 
+    deadlineDate: "",
+    deadlineType: STATUTORY_DEADLINE_TYPES[0],
+    deadlineNotes: "",
+    notes: "" 
+  });
   const [errors, setErrors] = useState({});
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -48,38 +63,89 @@ export function MatterForm({ record, clients, onClose, onSave }) {
   };
 
   return (
-    <Modal title={record ? "Edit Matter" : "Open New Matter"} onClose={onClose}>
+    <Modal title={record ? "Edit Matter Docket" : "Open New Case Docket"} onClose={onClose} maxWidth={580}>
       <Field label="Matter Title / Cause Title *" error={errors.title}>
         <input style={{ ...inputStyle, borderColor: errors.title ? "#6B2737" : "#D9D2C2" }} value={f.title} onChange={set("title")} autoFocus placeholder="e.g. Apex vs. Port Authority" />
       </Field>
-      <Field label="Client">
-        <select style={inputStyle} value={f.clientId} onChange={set("clientId")}>
-          <option value="">— Unassigned —</option>
-          {clients.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-        </select>
-      </Field>
-      <Field label="Practice Area">
-        <select style={inputStyle} value={f.practiceArea} onChange={set("practiceArea")}>
-          {PRACTICE_AREAS.map((area) => (<option key={area} value={area}>{area}</option>))}
-        </select>
-      </Field>
-      <Field label="Assigned Advocate / Lead Counsel"><input style={inputStyle} value={f.advocate} onChange={set("advocate")} placeholder="e.g. Sarah Miller, Esq." /></Field>
+
       <div style={{ display: "flex", gap: 10 }}>
         <div style={{ flex: 1 }}>
-          <Field label="Status">
+          <Field label="Suit / Case / Petition No.">
+            <input style={inputStyle} value={f.caseNumber || ""} onChange={set("caseNumber")} placeholder="e.g. ARB/2026/89 or CS 412/2026" />
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="Court / Judicial Forum">
+            <select style={inputStyle} value={f.court || COURTS[0]} onChange={set("court")}>
+              {COURTS.map((c) => (<option key={c} value={c}>{c}</option>))}
+            </select>
+          </Field>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Client">
+            <select style={inputStyle} value={f.clientId} onChange={set("clientId")}>
+              <option value="">— Unassigned —</option>
+              {clients.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+            </select>
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="Practice Area">
+            <select style={inputStyle} value={f.practiceArea} onChange={set("practiceArea")}>
+              {PRACTICE_AREAS.map((area) => (<option key={area} value={area}>{area}</option>))}
+            </select>
+          </Field>
+        </div>
+      </div>
+
+      <Field label="Assigned Advocate / Lead Counsel">
+        <input style={inputStyle} value={f.advocate} onChange={set("advocate")} placeholder="e.g. Adv. Mohamed Adil" />
+      </Field>
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Procedural Stage / Status">
             <select style={inputStyle} value={f.status} onChange={set("status")}>
               {MATTER_STATUSES.map((s) => (<option key={s} value={s}>{s}</option>))}
             </select>
           </Field>
         </div>
         <div style={{ flex: 1 }}>
-          <Field label="Filing Date"><input type="date" style={inputStyle} value={f.filingDate} onChange={set("filingDate")} /></Field>
+          <Field label="Filing / Registry Date">
+            <input type="date" style={inputStyle} value={f.filingDate} onChange={set("filingDate")} />
+          </Field>
         </div>
       </div>
-      <Field label="Case Notes / Strategy"><textarea style={{ ...inputStyle, minHeight: 65, resize: "vertical" }} value={f.notes} onChange={set("notes")} placeholder="Forum details, prayer sought, limitations..." /></Field>
+
+      {/* Statutory Limitation & Critical Deadline Section */}
+      <div style={{ background: "#FBF9F5", border: "1px solid #EFEBE1", padding: "12px 14px", borderRadius: 6, marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#6B6255", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+          Statutory Limitation & Filing Deadline (Optional)
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontSize: 10.5, color: "#8A8578", marginBottom: 2 }}>DEADLINE TYPE</label>
+            <select style={inputStyle} value={f.deadlineType || STATUTORY_DEADLINE_TYPES[0]} onChange={set("deadlineType")}>
+              {STATUTORY_DEADLINE_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+            </select>
+          </div>
+          <div style={{ width: 150 }}>
+            <label style={{ display: "block", fontSize: 10.5, color: "#8A8578", marginBottom: 2 }}>CUTOFF DATE</label>
+            <input type="date" style={inputStyle} value={f.deadlineDate || ""} onChange={set("deadlineDate")} />
+          </div>
+        </div>
+      </div>
+
+      <Field label="Case Notes & Strategic Diary">
+        <textarea style={{ ...inputStyle, minHeight: 65, resize: "vertical" }} value={f.notes} onChange={set("notes")} placeholder="Key facts, legal issues, prayer sought, limitation notes..." />
+      </Field>
+
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-        <Btn onClick={() => validate() && onSave(f)}>Save Matter</Btn>
+        <Btn onClick={() => validate() && onSave(f)}>Save Case Docket</Btn>
       </div>
     </Modal>
   );

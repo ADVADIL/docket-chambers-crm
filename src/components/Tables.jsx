@@ -1,13 +1,24 @@
 import React, { useState } from "react";
-import { Users, Briefcase, Gavel, Receipt, Search, Edit3, Trash2, MessageSquare } from "lucide-react";
+import { Users, Briefcase, Gavel, Receipt, Search, Edit3, Trash2, MessageSquare, Printer } from "lucide-react";
 import { MATTER_STATUSES, MATTER_COLORS, BILL_COLORS, COURTS } from "../constants";
 import { fmtDate, daysUntil, fmtCurrency } from "../utils";
 import { Badge, EmptyState } from "./UI";
 
-export function RowActions({ onEdit, onDelete, onComm, commTitle = "Send Alert" }) {
+export function RowActions({ onEdit, onDelete, onComm, onPrint, commTitle = "Send Alert", printTitle = "Print Memo" }) {
   return (
-    <td style={{ width: 85, textAlign: "right" }}>
+    <td style={{ width: 105, textAlign: "right" }}>
       <div className="rowbtn" style={{ display: "inline-flex", gap: 2 }}>
+        {onPrint && (
+          <button
+            onClick={onPrint}
+            title={printTitle}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#8A8578", padding: 4, transition: "color 0.15s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#1C2333")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#8A8578")}
+          >
+            <Printer size={13.5} />
+          </button>
+        )}
         {onComm && (
           <button
             onClick={onComm}
@@ -106,7 +117,20 @@ export function MattersTable({ items, search, clientName, onEdit, onDelete, onCo
           <tbody>
             {filtered.map((m) => (
               <tr key={m.id}>
-                <td style={{ fontWeight: 600 }}>{m.title}</td>
+                <td>
+                  <div style={{ fontWeight: 600, color: "#1C2333" }}>{m.title}</div>
+                  <div style={{ fontSize: 11, color: "#8A8578", marginTop: 2 }}>
+                    {m.caseNumber ? `No: ${m.caseNumber} • ` : ""}{m.court || "Chambers"}
+                  </div>
+                  {m.deadlineDate && (
+                    <div style={{ marginTop: 4 }}>
+                      <Badge 
+                        text={`Limitation: ${fmtDate(m.deadlineDate)} (${daysUntil(m.deadlineDate)}d)`} 
+                        color={daysUntil(m.deadlineDate) <= 3 ? "#C62828" : "#B08D57"} 
+                      />
+                    </div>
+                  )}
+                </td>
                 <td>{clientName(m.clientId)}</td>
                 <td style={{ color: "#8A8578" }}>{m.practiceArea || "—"}</td>
                 <td style={{ color: "#8A8578" }}>{m.advocate || "—"}</td>
@@ -197,7 +221,7 @@ export function HearingsTable({ items, search, matterTitle, onEdit, onDelete, on
   );
 }
 
-export function BillingTable({ items, search, matterTitle, onEdit, onDelete, onComm }) {
+export function BillingTable({ items, search, matterTitle, onEdit, onDelete, onComm, onPrintInvoice }) {
   const filtered = items.filter((b) => (matterTitle(b.matterId) + (b.description || "")).toLowerCase().includes(search.toLowerCase()));
   if (items.length === 0) return <EmptyState icon={Receipt} title="No invoices found" sub="Record fee bills against matters here." />;
   return (
@@ -216,7 +240,9 @@ export function BillingTable({ items, search, matterTitle, onEdit, onDelete, onC
                 onEdit={() => onEdit(b)} 
                 onDelete={() => onDelete(b.id)} 
                 onComm={onComm ? () => onComm(b) : undefined}
+                onPrint={onPrintInvoice ? () => onPrintInvoice(b) : undefined}
                 commTitle="Send Fee Note & Payment Reminder"
+                printTitle="Print Official Chambers Fee Note / Invoice"
               />
             </tr>
           ))}
