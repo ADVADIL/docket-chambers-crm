@@ -2,8 +2,9 @@
 import { 
   Send, MessageSquare, Mail, Copy, Check, Printer, 
   ExternalLink, Sparkles, AlertCircle, RefreshCw, User, Phone, AtSign,
-  Zap, Settings, CheckCircle2
+  Zap, Settings, CheckCircle2, QrCode, Smartphone, X
 } from "lucide-react";
+import QRCode from "qrcode";
 import { Modal, Btn, Field, inputStyle } from "./UI";
 import { 
   COMM_TEMPLATES, 
@@ -49,6 +50,11 @@ export default function ClientCommModal({
   const [customBody, setCustomBody] = useState("");
   const [isManualEdit, setIsManualEdit] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // In-App Instant QR Code Generator
+  const [showPhoneQr, setShowPhoneQr] = useState(false);
+  const [phoneQrUrl, setPhoneQrUrl] = useState("");
+  const [generatingQr, setGeneratingQr] = useState(false);
 
   // In-app direct WhatsApp dispatch states
   const hasGateway = isGatewayConfigured();
@@ -105,6 +111,33 @@ export default function ClientCommModal({
     }
   }, [currentTemplate, templatePayload, isManualEdit]);
 
+  // Generate on-screen QR code whenever phone/text changes
+  useEffect(() => {
+    if (showPhoneQr && customBody) {
+      generateQrCode();
+    }
+  }, [showPhoneQr, clientPhone, customBody]);
+
+  const generateQrCode = async () => {
+    setGeneratingQr(true);
+    try {
+      const targetUrl = buildWhatsAppUrl(clientPhone, customBody);
+      const dataUrl = await QRCode.toDataURL(targetUrl, {
+        width: 260,
+        margin: 2,
+        color: {
+          dark: "#1C2333",
+          light: "#FFFFFF"
+        }
+      });
+      setPhoneQrUrl(dataUrl);
+    } catch (e) {
+      console.error("Failed to generate QR code:", e);
+    } finally {
+      setGeneratingQr(false);
+    }
+  };
+
   const handleResetToTemplate = () => {
     setIsManualEdit(false);
     const generated = currentTemplate.generate(templatePayload);
@@ -121,39 +154,43 @@ export default function ClientCommModal({
     }
   };
 
-  // 100% IN-APP WHATSAPP DISPATCH (NO EXTERNAL TAB)
-  const handleSendWhatsAppInApp = async () => {
-    if (!hasGateway) {
-      if (onOpenGatewayConfig) onOpenGatewayConfig();
-      return;
+  // Primary WhatsApp Dispatcher:
+  // 1. If user has a background gateway configured, sends in background.
+  // 2. Otherwise, opens WhatsApp Web in a neat floating sidecar window (zero tab redirect).
+  const handleSendWhatsApp = async () => {
+    if (hasGateway) {
+      setSendingWhatsApp(true);
+      setWhatsappStatus(null);
+      try {
+        await sendDirectWhatsApp({
+          to: clientPhone,
+          message: customBody
+        });
+        setWhatsappStatus({
+          success: true,
+          message: `Dispatched directly to WhatsApp (${cleanPhoneNumber(clientPhone)})!`
+        });
+      } catch (err) {
+        setWhatsappStatus({
+          success: false,
+          error: err.message || "Failed to dispatch via gateway."
+        });
+      } finally {
+        setSendingWhatsApp(false);
+      }
+    } else {
+      // Seamless sidecar popup: doesn't replace Docket CRM tab
+      const url = buildWhatsAppUrl(clientPhone, customBody);
+      const width = 960;
+      const height = 750;
+      const left = (window.screen.width - width) / 2;
+      const top = (window.screen.height - height) / 2;
+      window.open(
+        url,
+        "DocketWhatsAppDispatch",
+        `width=${width},height=${height},top=${top},left=${left},status=no,menubar=no,toolbar=no`
+      );
     }
-
-    setSendingWhatsApp(true);
-    setWhatsappStatus(null);
-
-    try {
-      await sendDirectWhatsApp({
-        to: clientPhone,
-        message: customBody
-      });
-      setWhatsappStatus({
-        success: true,
-        message: `Dispatched directly to WhatsApp (${cleanPhoneNumber(clientPhone)})!`
-      });
-    } catch (err) {
-      setWhatsappStatus({
-        success: false,
-        error: err.message || "Failed to dispatch via gateway."
-      });
-    } finally {
-      setSendingWhatsApp(false);
-    }
-  };
-
-  // Fallback external web link
-  const handleOpenWhatsAppExternal = () => {
-    const url = buildWhatsAppUrl(clientPhone, customBody);
-    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleOpenEmail = () => {
@@ -206,41 +243,8 @@ export default function ClientCommModal({
   return (
     <Modal title="Client Communications & Alerts" onClose={onClose} maxWidth={720}>
       <div>
-        {/* In-App Direct Sending Banner / Status */}
-        {hasGateway ? (
-          <div style={{ background: "rgba(37, 211, 102, 0.08)", border: "1px solid rgba(37, 211, 102, 0.3)", borderRadius: 6, padding: "8px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#1C2333" }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#25D366", display: "inline-block" }} />
-              <span><strong>WhatsApp In-App Direct Gateway:</strong> Active ({gatewayConfig.provider})</span>
-            </div>
-            {onOpenGatewayConfig && (
-              <button
-                onClick={onOpenGatewayConfig}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6255", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}
-              >
-                <Settings size={12} /> Gateway Settings
-              </button>
-            )}
-          </div>
-        ) : (
-          <div style={{ background: "#F4F0E8", border: "1px solid #E4DFD3", borderRadius: 6, padding: "8px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 11.5, color: "#6B6255", display: "flex", alignItems: "center", gap: 6 }}>
-              <Zap size={13} color="#B08D57" />
-              <span>Send directly inside the app without opening external tabs:</span>
-            </div>
-            {onOpenGatewayConfig && (
-              <button
-                onClick={onOpenGatewayConfig}
-                style={{ background: "#25D366", color: "#FFFFFF", border: "none", borderRadius: 4, padding: "4px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
-              >
-                Connect WhatsApp Gateway
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Template Selector Tabs */}
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 10, borderBottom: "1px solid #E4DFD3", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 10, borderBottom: "1px solid #E4DFD3", marginBottom: 14 }}>
           {COMM_TEMPLATES.map((tmpl) => {
             const active = templateId === tmpl.id;
             return (
@@ -271,7 +275,7 @@ export default function ClientCommModal({
         </div>
 
         {/* Recipient Details Bar */}
-        <div style={{ background: "#F4F0E8", padding: "12px 14px", borderRadius: 6, marginBottom: 16, border: "1px solid #E2DCCF" }}>
+        <div style={{ background: "#F4F0E8", padding: "12px 14px", borderRadius: 6, marginBottom: 14, border: "1px solid #E2DCCF" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#6B6255", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
             <User size={13} /> Recipient Information
           </div>
@@ -311,10 +315,10 @@ export default function ClientCommModal({
         </div>
 
         {/* Live Composer & Message Preview */}
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <span style={{ fontSize: 11.5, fontWeight: 700, color: "#6B6255", textTransform: "uppercase", letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 5 }}>
-              <Sparkles size={13} color="#B08D57" /> Message Composer & Preview
+              <Sparkles size={13} color="#B08D57" /> Message Preview
             </span>
             <div style={{ display: "flex", gap: 6 }}>
               {isManualEdit && (
@@ -333,7 +337,7 @@ export default function ClientCommModal({
           </div>
 
           <textarea
-            rows={10}
+            rows={9}
             value={customBody}
             onChange={(e) => {
               setCustomBody(e.target.value);
@@ -351,14 +355,14 @@ export default function ClientCommModal({
             }}
           />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 11, color: "#8A8578" }}>
-            <span>Formatting: *bold*, _italics_. Messages dispatch directly to client WhatsApp.</span>
+            <span>Formatting: *bold*, _italics_. Dispatches directly to client WhatsApp.</span>
             <span>{customBody.length} characters</span>
           </div>
 
-          {/* In-App Dispatch Status Alert */}
+          {/* Status Alert if dispatched via gateway */}
           {whatsappStatus && (
             <div style={{
-              marginTop: 10,
+              marginTop: 8,
               padding: "8px 12px",
               borderRadius: 6,
               fontSize: 12,
@@ -373,20 +377,57 @@ export default function ClientCommModal({
                 {whatsappStatus.success ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
                 <span>{whatsappStatus.success ? whatsappStatus.message : whatsappStatus.error}</span>
               </div>
-              {!whatsappStatus.success && (
-                <button
-                  onClick={handleOpenWhatsAppExternal}
-                  style={{ background: "none", border: "none", textDecoration: "underline", color: "#C62828", cursor: "pointer", fontSize: 11 }}
-                >
-                  Try via external WhatsApp link
-                </button>
-              )}
             </div>
           )}
         </div>
 
+        {/* ON-SCREEN PHONE QR CODE DRAWER (ZERO SETUP - 100% INSTANT) */}
+        {showPhoneQr && (
+          <div style={{
+            background: "#FFFFFF",
+            border: "2px solid #25D366",
+            borderRadius: 8,
+            padding: "16px 20px",
+            marginBottom: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: "0 6px 20px rgba(37, 211, 102, 0.12)",
+            animation: "fadeIn 0.2s ease-out"
+          }}>
+            <div style={{ flex: 1, paddingRight: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#25D366", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+                <Smartphone size={18} />
+                Point Phone Camera at QR Code
+              </div>
+              <div style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5, marginBottom: 8 }}>
+                Your phone camera will instantly recognize this legal notice and open WhatsApp with <strong>{clientPhone || "your client"}</strong> ready to send!
+              </div>
+              <div style={{ fontSize: 11, color: "#8A8578" }}>
+                ✓ Zero logins, zero tokens, zero setup. Works directly with your phone.
+              </div>
+            </div>
+
+            <div style={{ textAlign: "center", position: "relative" }}>
+              <div style={{ width: 150, height: 150, background: "#FFF", borderRadius: 8, border: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                {phoneQrUrl ? (
+                  <img src={phoneQrUrl} alt="WhatsApp QR Code" style={{ width: 140, height: 140 }} />
+                ) : (
+                  <RefreshCw size={24} style={{ animation: "spin 1s linear infinite", color: "#25D366" }} />
+                )}
+              </div>
+              <button
+                onClick={() => setShowPhoneQr(false)}
+                style={{ position: "absolute", top: -8, right: -8, background: "#1C2333", color: "#FFF", border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <X size={13} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Action Channels Toolbar */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid #E4DFD3" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid #E4DFD3" }}>
           <div style={{ display: "flex", gap: 8 }}>
             <Btn
               variant="ghost"
@@ -402,40 +443,34 @@ export default function ClientCommModal({
           </div>
 
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {hasGateway ? (
-              <Btn
-                onClick={handleSendWhatsAppInApp}
-                disabled={sendingWhatsApp}
-                style={{ background: "#25D366", color: "#FFFFFF", border: "none", fontWeight: 700 }}
-                title="Send directly inside Docket CRM via WhatsApp Gateway (0 external tabs)"
-              >
-                {sendingWhatsApp ? (
-                  <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} />
-                ) : (
-                  <Zap size={14} />
-                )}
-                {sendingWhatsApp ? "Dispatching..." : "Send WhatsApp (In-App)"}
-              </Btn>
-            ) : (
-              <Btn
-                onClick={handleSendWhatsAppInApp}
-                style={{ background: "#25D366", color: "#FFFFFF", border: "none" }}
-                title="Connect WhatsApp Gateway for direct in-app sending"
-              >
-                <Zap size={14} /> Send WhatsApp (In-App)
-              </Btn>
-            )}
+            {/* INSTANT PHONE QR BUTTON */}
+            <Btn
+              variant="ghost"
+              onClick={() => setShowPhoneQr(!showPhoneQr)}
+              style={{
+                borderColor: showPhoneQr ? "#25D366" : undefined,
+                background: showPhoneQr ? "rgba(37, 211, 102, 0.1)" : undefined,
+                color: showPhoneQr ? "#25D366" : undefined
+              }}
+              title="Generate a QR code to scan with your phone camera"
+            >
+              <QrCode size={14} /> {showPhoneQr ? "Hide QR" : "Scan Phone QR"}
+            </Btn>
 
-            {/* Quick fallback button */}
-            {!hasGateway && (
-              <button
-                onClick={handleOpenWhatsAppExternal}
-                title="Open WhatsApp Web in browser"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#8A8578", padding: 4, display: "flex", alignItems: "center" }}
-              >
-                <ExternalLink size={14} />
-              </button>
-            )}
+            {/* PRIMARY WHATSAPP BUTTON (ALWAYS WORKS INSTANTLY) */}
+            <Btn
+              onClick={handleSendWhatsApp}
+              disabled={sendingWhatsApp}
+              style={{ background: "#25D366", color: "#FFFFFF", border: "none", fontWeight: 600 }}
+              title="Dispatch directly to WhatsApp"
+            >
+              {sendingWhatsApp ? (
+                <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} />
+              ) : (
+                <MessageSquare size={14} />
+              )}
+              {sendingWhatsApp ? "Dispatching..." : "Send WhatsApp"}
+            </Btn>
 
             <Btn
               onClick={handleOpenEmail}
