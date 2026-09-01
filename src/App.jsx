@@ -205,7 +205,6 @@ export default function App() {
       await supabase.auth.signOut();
     }
     setSession(null);
-    setOfflineBypass(false);
   };
 
   const clientName = useCallback((id) => {
@@ -322,16 +321,6 @@ export default function App() {
 
   const allLoaded = clientsC.loaded && mattersC.loaded && hearingsC.loaded && billingC.loaded;
 
-  const nav = [
-    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { key: "clients", label: "Clients", icon: Users, count: clientsC.items.length },
-    { key: "matters", label: "Matters", icon: Briefcase, count: mattersC.items.length },
-    { key: "hearings", label: "Hearings", icon: Gavel, count: upcomingHearings.length },
-    { key: "deadlines", label: "Deadlines", icon: Clock },
-    { key: "calendar", label: "Calendar", icon: CalendarDays },
-    { key: "billing", label: "Billing", icon: Receipt, count: billingC.items.length },
-  ];
-
   const upcomingHearings = useMemo(() => {
     return hearingsC.items
       .filter((h) => daysUntil(h.date) !== null && daysUntil(h.date) >= 0)
@@ -344,6 +333,16 @@ export default function App() {
   const totalRevenue = useMemo(() => {
     return billingC.items.filter((b) => b.status === "Paid").reduce((sum, b) => sum + Number(b.amount || 0), 0);
   }, [billingC.items]);
+
+  const nav = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "clients", label: "Clients", icon: Users, count: clientsC.items.length },
+    { key: "matters", label: "Matters", icon: Briefcase, count: mattersC.items.length },
+    { key: "hearings", label: "Hearings", icon: Gavel, count: upcomingHearings.length },
+    { key: "deadlines", label: "Deadlines", icon: Clock },
+    { key: "calendar", label: "Calendar", icon: CalendarDays },
+    { key: "billing", label: "Billing", icon: Receipt, count: overdueInvoices.length },
+  ];
 
   const printCauseList = () => {
     window.print();
