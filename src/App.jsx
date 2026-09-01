@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { getSupabaseClient, isSupabaseConfigured } from "./lib/supabase";
 import { SEED_DATA } from "./constants";
-import { toAppRecord, toDbRecord, daysUntil } from "./utils";
+import { toAppRecord, toDbRecord, daysUntil, printElement } from "./utils";
 import { Btn, inputStyle } from "./components/UI";
 import Dashboard from "./components/Dashboard";
 import { ClientsTable, MattersTable, HearingsTable, BillingTable } from "./components/Tables";
@@ -368,7 +368,11 @@ export default function App() {
   ];
 
   const printCauseList = () => {
-    window.print();
+    printElement("cause-list-printable-sheet", "Daily_Cause_List");
+  };
+
+  const printBillingReport = () => {
+    printElement("billing-printable-sheet", "Chambers_Billing_Statement");
   };
 
   const renderContent = () => {
@@ -504,8 +508,9 @@ export default function App() {
         ::-webkit-scrollbar-thumb:hover { background: #8A6D3B; }
         @media print {
           body * { visibility: hidden; }
-          #printable-area, #printable-area * { visibility: visible; }
-          #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+          #printable-area, #printable-area *, #invoice-printable-sheet, #invoice-printable-sheet *, #cause-list-printable-sheet, #cause-list-printable-sheet *, #billing-printable-sheet, #billing-printable-sheet * { visibility: visible; }
+          #invoice-printable-sheet, #cause-list-printable-sheet, #billing-printable-sheet, #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+          .no-print, .rowbtn { display: none !important; }
         }
       `}</style>
 
@@ -740,6 +745,11 @@ export default function App() {
                     <Printer size={14} /> Print Cause List
                   </Btn>
                 </>
+              )}
+              {tab === "billing" && (
+                <Btn variant="ghost" onClick={printBillingReport} title="Print Fee Notes & Invoices Statement">
+                  <Printer size={14} /> Print Statement
+                </Btn>
               )}
               <Btn 
                 variant="ghost" 

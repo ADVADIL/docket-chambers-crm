@@ -215,7 +215,7 @@ export function BillingForm({ record, matters = [], onClose, onSave }) {
       <Field label="Matter *" error={errors.matterId}>
         <select style={{ ...inputStyle, borderColor: errors.matterId ? "#6B2737" : "#D9D2C2" }} value={f.matterId} onChange={set("matterId")}>
           <option value="">— Select matter —</option>
-          {matters.map((m) => (<option key={m.id} value={m.id}>{m.title}</option>))}
+          {safeMatters.map((m) => (<option key={m.id} value={m.id}>{m.title}</option>))}
         </select>
       </Field>
       <Field label="Description / Particulars"><input style={inputStyle} value={f.description} onChange={set("description")} placeholder="e.g. Drafting Writ Petition, Senior Appearance" /></Field>
@@ -247,7 +247,7 @@ export function BillingForm({ record, matters = [], onClose, onSave }) {
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-        <Btn onClick={() => validate() && onSave(f)}>Save Invoice</Btn>
+        <Btn onClick={() => validate() && onSave({ ...f, amount: Number(f.amount) || 0 })}>Save Invoice</Btn>
       </div>
     </Modal>
   );

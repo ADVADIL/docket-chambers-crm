@@ -169,3 +169,67 @@ export function toDbRecord(tableName, appRecord) {
   }
   return appRecord;
 }
+
+export function printElement(elementId, title = "Chambers Practice Document") {
+  const elem = document.getElementById(elementId);
+  if (!elem) {
+    window.print();
+    return;
+  }
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  iframe.style.zIndex = "-9999";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${title}</title>
+        <meta charset="utf-8" />
+        <style>
+          @page { size: A4; margin: 16mm 14mm; }
+          * { box-sizing: border-box; }
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'IBM Plex Sans', 'Segoe UI', Roboto, 'Times New Roman', serif;
+            color: #1C2333; 
+            background: #FFFFFF !important;
+            margin: 0; 
+            padding: 0; 
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          table { border-collapse: collapse; width: 100%; }
+          th, td { text-align: left; }
+          .no-print, .rowbtn { display: none !important; }
+        </style>
+      </head>
+      <body>
+        ${elem.innerHTML}
+      </body>
+    </html>
+  `);
+  doc.close();
+
+  iframe.contentWindow.focus();
+  setTimeout(() => {
+    try {
+      iframe.contentWindow.print();
+    } catch (e) {
+      window.print();
+    }
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 1500);
+  }, 250);
+}

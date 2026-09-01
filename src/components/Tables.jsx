@@ -191,7 +191,7 @@ export function HearingsTable({ items = [], search = "", matterTitle = () => "�
         ))}
       </div>
 
-      <div id="printable-area" style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, overflow: "hidden" }}>
+      <div id="cause-list-printable-sheet" style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, overflow: "hidden" }}>
         <table>
           <thead><tr><th>Listing Date</th><th>Matter Title</th><th>Court / Forum</th><th>Notes / Action Item</th><th>Urgency</th><th></th></tr></thead>
           <tbody>
@@ -236,17 +236,17 @@ export function BillingTable({ items = [], search = "", matterTitle = () => "—
   const filtered = safeItems.filter((b) => ((safeTitle(b.matterId) || "") + (b.description || "")).toLowerCase().includes(query));
   if (safeItems.length === 0) return <EmptyState icon={Receipt} title="No invoices found" sub="Record fee bills against matters here." />;
   return (
-    <div style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, overflow: "hidden" }}>
+    <div id="billing-printable-sheet" style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, overflow: "hidden" }}>
       <table>
         <thead><tr><th>Matter</th><th>Description</th><th>Amount</th><th>Invoice Date</th><th>Status</th><th></th></tr></thead>
         <tbody>
           {filtered.map((b) => (
             <tr key={b.id}>
-              <td style={{ fontWeight: 600 }}>{matterTitle(b.matterId)}</td>
-              <td style={{ color: "#8A8578" }}>{b.description}</td>
+              <td style={{ fontWeight: 600 }}>{safeTitle(b.matterId)}</td>
+              <td style={{ color: "#8A8578" }}>{b.description || "—"}</td>
               <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{fmtCurrency(b.amount, b.currency)}</td>
               <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5 }}>{fmtDate(b.date)}</td>
-              <td><Badge text={b.status} color={BILL_COLORS[b.status]} /></td>
+              <td><Badge text={b.status || "Draft"} color={BILL_COLORS[b.status] || "#8A8578"} /></td>
               <RowActions 
                 onEdit={() => onEdit(b)} 
                 onDelete={() => onDelete(b.id)} 

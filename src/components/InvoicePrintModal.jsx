@@ -1,7 +1,7 @@
-﻿import React from "react";
+import React from "react";
 import { Printer, Download, X, Gavel, ShieldCheck, Mail, Phone, Building } from "lucide-react";
 import { Modal, Btn } from "./UI";
-import { fmtDate, fmtCurrency } from "../utils";
+import { fmtDate, fmtCurrency, printElement } from "../utils";
 
 export default function InvoicePrintModal({
   bill,
@@ -22,7 +22,7 @@ export default function InvoicePrintModal({
   const clerkageFee = amount - appearanceFee - draftingFee;
 
   const handlePrint = () => {
-    window.print();
+    printElement("invoice-printable-sheet", `Fee_Note_${invoiceNo}`);
   };
 
   return (
@@ -45,7 +45,7 @@ export default function InvoicePrintModal({
 
         {/* Printable Memo Document Sheet */}
         <div 
-          id="printable-area"
+          id="invoice-printable-sheet"
           style={{
             background: "#FFFFFF",
             border: "1px solid #D9D2C2",
