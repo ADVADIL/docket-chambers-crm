@@ -119,17 +119,22 @@ function useUniversalCollection(tableName, refreshTrigger) {
 
   const remove = useCallback(async (id) => {
     const supabase = getSupabaseClient();
-    setItems((prev) => prev.filter((i) => i.id !== id));
-
     if (supabase) {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.warn(`Unauthorized delete attempt on ${tableName} rejected.`);
+          return;
+        }
         const { error } = await supabase.from(tableName).delete().eq("id", id);
         if (error) throw error;
-        return;
       } catch (err) {
         console.error(`Supabase delete error on ${tableName}:`, err);
+        return;
       }
     }
+
+    setItems((prev) => prev.filter((i) => i.id !== id));
 
     try {
       const localKey = `docket_local_${tableName}`;
@@ -220,7 +225,12 @@ export default function App() {
   const closeModal = () => setModal(null);
 
   const handleDelete = (collection, id) => {
-    if (window.confirm("Are you sure you want to delete this record?")) {
+    if (!session) {
+      alert("🔒 Counsel Authentication Required:\nYou must be signed in with verified chambers credentials to delete records.\n\nPlease sign in or register your counsel account.");
+      setShowAuthModal(true);
+      return;
+    }
+    if (window.confirm("Are you sure you want to delete this record from chambers registry?")) {
       collection.remove(id);
     }
   };
@@ -643,6 +653,41 @@ export default function App() {
       </div>
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {!session && (
+          <div style={{
+            background: "#FFF8E1",
+            borderBottom: "1px solid #FFE082",
+            padding: "8px 32px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontSize: 12,
+            color: "#6D4C41"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14 }}>🔒</span>
+              <strong>Chambers Guest Mode (View Only):</strong>
+              <span>You are viewing chambers records in read-only mode. Deleting or modifying cases is protected.</span>
+            </div>
+            <button
+              onClick={() => setShowAuthModal(true)}
+              style={{
+                background: "#6B2737",
+                color: "#F7F5F0",
+                border: "none",
+                borderRadius: 4,
+                padding: "4px 12px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+              }}
+            >
+              Sign In as Counsel
+            </button>
+          </div>
+        )}
+
         <div style={{ padding: "18px 32px 0", background: "#FCFAF6", borderBottom: "1px solid #E4DFD3" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 16 }}>
             <div>
@@ -727,10 +772,69 @@ export default function App() {
         </div>
       </div>
 
-      {modal?.type === "clients" && <ClientForm record={modal.record} onClose={closeModal} onSave={(r) => { clientsC.upsert(r); closeModal(); }} />}
-      {modal?.type === "matters" && <MatterForm record={modal.record} clients={clientsC.items} onClose={closeModal} onSave={(r) => { mattersC.upsert(r); closeModal(); }} />}
-      {modal?.type === "hearings" && <HearingForm record={modal.record} matters={mattersC.items} onClose={closeModal} onSave={(r) => { hearingsC.upsert(r); closeModal(); }} />}
-      {modal?.type === "billing" && <BillingForm record={modal.record} matters={mattersC.items} onClose={closeModal} onSave={(r) => { billingC.upsert(r); closeModal(); }} />}
+      {modal?.type === "clients" && (
+        <ClientForm 
+          record={modal.record} 
+          onClose={closeModal} 
+          onSave={(r) => { 
+            if (!session) {
+              alert("🔒 Counsel Authentication Required:\nPlease sign in with chambers credentials to save or edit client records.");
+              setShowAuthModal(true);
+              return;
+            }
+            clientsC.upsert(r); 
+            closeModal(); 
+          }} 
+        />
+      )}
+      {modal?.type === "matters" && (
+        <MatterForm 
+          record={modal.record} 
+          clients={clientsC.items} 
+          onClose={closeModal} 
+          onSave={(r) => { 
+            if (!session) {
+              alert("🔒 Counsel Authentication Required:\nPlease sign in with chambers credentials to save or edit legal matters.");
+              setShowAuthModal(true);
+              return;
+            }
+            mattersC.upsert(r); 
+            closeModal(); 
+          }} 
+        />
+      )}
+      {modal?.type === "hearings" && (
+        <HearingForm 
+          record={modal.record} 
+          matters={mattersC.items} 
+          onClose={closeModal} 
+          onSave={(r) => { 
+            if (!session) {
+              alert("🔒 Counsel Authentication Required:\nPlease sign in with chambers credentials to schedule or modify hearings.");
+              setShowAuthModal(true);
+              return;
+            }
+            hearingsC.upsert(r); 
+            closeModal(); 
+          }} 
+        />
+      )}
+      {modal?.type === "billing" && (
+        <BillingForm 
+          record={modal.record} 
+          matters={mattersC.items} 
+          onClose={closeModal} 
+          onSave={(r) => { 
+            if (!session) {
+              alert("🔒 Counsel Authentication Required:\nPlease sign in with chambers credentials to issue or edit fee notes.");
+              setShowAuthModal(true);
+              return;
+            }
+            billingC.upsert(r); 
+            closeModal(); 
+          }} 
+        />
+      )}
 
       {commModal && (
         <ClientCommModal 
@@ -785,26 +889,12 @@ export default function App() {
         />
       )}
 
-      {/* Optional Counsel Authentication Modal */}
+      {/* Counsel Authentication Modal */}
       {showAuthModal && (
-        <div 
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(28, 35, 51, 0.75)",
-            backdropFilter: "blur(4px)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 20
-          }} 
-          onClick={() => setShowAuthModal(false)}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 440 }}>
-            <Auth onBypass={() => setShowAuthModal(false)} />
-          </div>
-        </div>
+        <Auth 
+          onClose={() => setShowAuthModal(false)} 
+          onBypass={() => setShowAuthModal(false)} 
+        />
       )}
     </div>
   );
