@@ -7,6 +7,7 @@ export default function InvoicePrintModal({
   bill,
   matter,
   client,
+  profile,
   onClose
 }) {
   if (!bill) return null;
@@ -15,6 +16,16 @@ export default function InvoicePrintModal({
   const invoiceDate = fmtDate(bill.invoiceDate || bill.date || new Date());
   const currency = bill.currency || "AED";
   const amount = Number(bill.amount) || 0;
+
+  // Chambers billing profile — falls back to sensible defaults if not yet configured
+  const chambersName = profile?.chambersName || "CHAMBERS OF ADV. MOHAMED ADIL";
+  const tagline = profile?.tagline || "ADVOCATES & LEGAL CONSULTANTS • LITIGATION PRACTICE REGISTRY";
+  const barRegistryNo = profile?.barRegistryNo || "D/1842/2016";
+  const addressLine = profile?.addressLine || "High Court & Appellate Chambers • Dubai / New Delhi";
+  const accountName = profile?.accountName || "Chambers of Adv. Mohamed Adil";
+  const bankName = profile?.bankName || "Emirates NBD / Standard Chartered";
+  const accountIban = profile?.accountIban || "AE140260001092837461";
+  const swiftCode = profile?.swiftCode || "ENBDAEADXXX";
 
   // Auto-calculated itemized breakdown
   const appearanceFee = Math.round(amount * 0.65);
@@ -60,13 +71,13 @@ export default function InvoicePrintModal({
           {/* Chambers Crest & Header */}
           <div style={{ textAlign: "center", borderBottom: "2.5px solid #1C2333", paddingBottom: 20, marginBottom: 28 }}>
             <div style={{ fontSize: 24, fontWeight: "bold", letterSpacing: 1.5, textTransform: "uppercase", color: "#1C2333" }}>
-              CHAMBERS OF ADV. MOHAMED ADIL
+              {chambersName}
             </div>
             <div style={{ fontSize: 13, letterSpacing: 1, textTransform: "uppercase", color: "#4A453C", marginTop: 4 }}>
-              ADVOCATES & LEGAL CONSULTANTS • LITIGATION PRACTICE REGISTRY
+              {tagline}
             </div>
             <div style={{ fontSize: 11, color: "#666", marginTop: 6 }}>
-              Bar Council Registry No: D/1842/2016 • High Court & Appellate Chambers • Dubai / New Delhi
+              Bar Council Registry No: {barRegistryNo} • {addressLine}
             </div>
           </div>
 
@@ -164,17 +175,17 @@ export default function InvoicePrintModal({
               <div style={{ fontWeight: "bold", marginBottom: 4, textTransform: "uppercase", fontSize: 11.5, color: "#444" }}>
                 CHAMBERS WIRE & REMITTANCE INSTRUCTIONS:
               </div>
-              <div><strong>Account Name:</strong> Chambers of Adv. Mohamed Adil</div>
-              <div><strong>Bank Name:</strong> Emirates NBD / Standard Chartered</div>
-              <div><strong>Account / IBAN:</strong> AE140260001092837461</div>
-              <div><strong>SWIFT / BIC:</strong> ENBDAEADXXX</div>
+              <div><strong>Account Name:</strong> {accountName}</div>
+              <div><strong>Bank Name:</strong> {bankName}</div>
+              <div><strong>Account / IBAN:</strong> {accountIban}</div>
+              <div><strong>SWIFT / BIC:</strong> {swiftCode}</div>
               <div style={{ color: "#666", marginTop: 4 }}>Please quote Invoice No. <strong>{invoiceNo}</strong> in transfer description.</div>
             </div>
 
             <div style={{ textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center" }}>
               <div style={{ width: 160, borderBottom: "1px solid #1C2333", marginBottom: 6 }} />
               <div style={{ fontWeight: "bold", fontSize: 13 }}>ADVOCATE-ON-RECORD</div>
-              <div style={{ fontSize: 11, color: "#666" }}>Chambers of Adv. Mohamed Adil</div>
+              <div style={{ fontSize: 11, color: "#666" }}>{chambersName}</div>
             </div>
           </div>
         </div>

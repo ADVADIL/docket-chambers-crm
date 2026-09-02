@@ -153,7 +153,7 @@ export function MatterForm({ record, clients = [], onClose, onSave }) {
 
 export function HearingForm({ record, matters = [], onClose, onSave }) {
   const safeMatters = Array.isArray(matters) ? matters : [];
-  const [f, setF] = useState(record || { id: uid(), matterId: safeMatters[0]?.id || "", date: todayISO(), court: COURTS[0], notes: "" });
+  const [f, setF] = useState(record || { id: uid(), matterId: safeMatters[0]?.id || "", date: todayISO(), time: "", court: COURTS[0], notes: "" });
   const [errors, setErrors] = useState({});
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -177,6 +177,11 @@ export function HearingForm({ record, matters = [], onClose, onSave }) {
         <div style={{ flex: 1 }}>
           <Field label="Hearing Date *" error={errors.date}>
             <input type="date" style={{ ...inputStyle, borderColor: errors.date ? "#6B2737" : "#D9D2C2" }} value={f.date} onChange={set("date")} />
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="Time">
+            <input type="time" style={inputStyle} value={f.time || ""} onChange={set("time")} />
           </Field>
         </div>
         <div style={{ flex: 1 }}>

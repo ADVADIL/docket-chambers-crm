@@ -4,10 +4,21 @@ import { MATTER_STATUSES, MATTER_COLORS, BILL_COLORS, COURTS } from "../constant
 import { fmtDate, daysUntil, fmtCurrency } from "../utils";
 import { Badge, EmptyState } from "./UI";
 
-export function RowActions({ onEdit, onDelete, onComm, onPrint, commTitle = "Send Alert", printTitle = "Print Memo" }) {
+export function RowActions({ onEdit, onDelete, onComm, onPrint, onView, commTitle = "Send Alert", printTitle = "Print Memo", viewTitle = "Open" }) {
   return (
     <td style={{ width: 105, textAlign: "right" }}>
       <div className="rowbtn" style={{ display: "inline-flex", gap: 2 }}>
+        {onView && (
+          <button
+            onClick={onView}
+            title={viewTitle}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#8A8578", padding: 4, transition: "color 0.15s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#B08D57")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#8A8578")}
+          >
+            <Gavel size={13.5} />
+          </button>
+        )}
         {onPrint && (
           <button
             onClick={onPrint}
@@ -53,7 +64,7 @@ export function RowActions({ onEdit, onDelete, onComm, onPrint, commTitle = "Sen
   );
 }
 
-export function ClientsTable({ items = [], search = "", onEdit, onDelete, onComm }) {
+export function ClientsTable({ items = [], search = "", onEdit, onDelete, onComm, onOpenLedger }) {
   const safeItems = Array.isArray(items) ? items : [];
   const query = (search || "").toLowerCase();
   const filtered = safeItems.filter((c) => ((c.name || "") + (c.company || "") + (c.email || "")).toLowerCase().includes(query));
@@ -65,7 +76,11 @@ export function ClientsTable({ items = [], search = "", onEdit, onDelete, onComm
         <tbody>
           {filtered.map((c) => (
             <tr key={c.id}>
-              <td style={{ fontWeight: 600 }}>{c.name}</td>
+              <td style={{ fontWeight: 600 }}>
+                {onOpenLedger ? (
+                  <span onClick={() => onOpenLedger(c)} style={{ cursor: "pointer" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#6B2737")} onMouseLeave={(e) => (e.currentTarget.style.color = "inherit")}>{c.name}</span>
+                ) : c.name}
+              </td>
               <td style={{ color: "#8A8578" }}>{c.company || "—"}</td>
               <td>{c.email || "—"}</td>
               <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5 }}>{c.phone || "—"}</td>
@@ -84,7 +99,7 @@ export function ClientsTable({ items = [], search = "", onEdit, onDelete, onComm
   );
 }
 
-export function MattersTable({ items = [], search = "", clientName = () => "—", onEdit, onDelete, onComm }) {
+export function MattersTable({ items = [], search = "", clientName = () => "—", onEdit, onDelete, onComm, onOpenFile }) {
   const [statusFilter, setStatusFilter] = useState("All");
   const safeItems = Array.isArray(items) ? items : [];
   const safeClientName = typeof clientName === "function" ? clientName : () => "—";
@@ -123,7 +138,14 @@ export function MattersTable({ items = [], search = "", clientName = () => "—"
             {filtered.map((m) => (
               <tr key={m.id}>
                 <td>
-                  <div style={{ fontWeight: 600, color: "#1C2333" }}>{m.title}</div>
+                  <div
+                    onClick={onOpenFile ? () => onOpenFile(m) : undefined}
+                    style={{ fontWeight: 600, color: "#1C2333", cursor: onOpenFile ? "pointer" : "default" }}
+                    onMouseEnter={(e) => onOpenFile && (e.currentTarget.style.color = "#6B2737")}
+                    onMouseLeave={(e) => onOpenFile && (e.currentTarget.style.color = "#1C2333")}
+                  >
+                    {m.title}
+                  </div>
                   <div style={{ fontSize: 11, color: "#8A8578", marginTop: 2 }}>
                     {m.caseNumber ? `No: ${m.caseNumber} • ` : ""}{m.court || "Chambers"}
                   </div>
@@ -157,7 +179,7 @@ export function MattersTable({ items = [], search = "", clientName = () => "—"
   );
 }
 
-export function HearingsTable({ items = [], search = "", matterTitle = () => "—", onEdit, onDelete, onPrint, onComm }) {
+export function HearingsTable({ items = [], search = "", matterTitle = () => "—", onEdit, onDelete, onPrint, onComm, onOpenBrief }) {
   const [courtFilter, setCourtFilter] = useState("All");
   const safeItems = Array.isArray(items) ? items : [];
   const safeTitle = typeof matterTitle === "function" ? matterTitle : () => "—";
@@ -216,6 +238,8 @@ export function HearingsTable({ items = [], search = "", matterTitle = () => "�
                     onEdit={() => onEdit && onEdit(h)} 
                     onDelete={() => onDelete && onDelete(h.id)} 
                     onComm={onComm ? () => onComm(h) : undefined}
+                    onView={onOpenBrief ? () => onOpenBrief(h) : undefined}
+                    viewTitle="Open hearing brief"
                     commTitle="Send Hearing Notice / Outcome (WhatsApp & Email)"
                   />
                 </tr>

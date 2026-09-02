@@ -51,6 +51,26 @@ export const fmtCurrency = (amount, currency = "AED") => {
   }
 };
 
+// Days a bill has been outstanding (positive = overdue by that many days). Used for aging buckets.
+export const daysOverdue = (dateStr) => {
+  const d = daysUntil(dateStr);
+  return d === null ? 0 : -d;
+};
+
+// Buckets a set of unpaid bills by age (Current / 31-60 / 61-90 / 90+), summing amounts.
+export const agingBuckets = (bills) => {
+  const buckets = { current: 0, d31: 0, d61: 0, d90: 0 };
+  (bills || []).forEach((b) => {
+    const age = daysOverdue(b.date);
+    const amt = Number(b.amount) || 0;
+    if (age <= 30) buckets.current += amt;
+    else if (age <= 60) buckets.d31 += amt;
+    else if (age <= 90) buckets.d61 += amt;
+    else buckets.d90 += amt;
+  });
+  return buckets;
+};
+
 export function toAppRecord(tableName, dbRow) {
   if (!dbRow) return dbRow;
   if (tableName === "clients") {
@@ -90,6 +110,7 @@ export function toAppRecord(tableName, dbRow) {
       id: dbRow.id,
       matterId: dbRow.matter_id || dbRow.matterId || "",
       date: dbRow.hearing_date || dbRow.date || "",
+      time: dbRow.time || "",
       court: dbRow.court || "",
       notes: dbRow.notes || "",
       outcome: dbRow.outcome || "",
@@ -106,6 +127,21 @@ export function toAppRecord(tableName, dbRow) {
       currency: dbRow.currency || "AED",
       date: dbRow.invoice_date || dbRow.date || "",
       status: dbRow.status || "Draft",
+    };
+  }
+  if (tableName === "chambers_profile") {
+    return {
+      id: dbRow.id || "main",
+      chambersName: dbRow.chambers_name || dbRow.chambersName || "",
+      tagline: dbRow.tagline || "",
+      addressLine: dbRow.address_line || dbRow.addressLine || "",
+      barRegistryNo: dbRow.bar_registry_no || dbRow.barRegistryNo || "",
+      phone: dbRow.phone || "",
+      email: dbRow.email || "",
+      accountName: dbRow.account_name || dbRow.accountName || "",
+      bankName: dbRow.bank_name || dbRow.bankName || "",
+      accountIban: dbRow.account_iban || dbRow.accountIban || "",
+      swiftCode: dbRow.swift_code || dbRow.swiftCode || "",
     };
   }
   return dbRow;
@@ -149,6 +185,7 @@ export function toDbRecord(tableName, appRecord) {
       id: recordId,
       matter_id: appRecord.matterId && uuidRegex.test(appRecord.matterId) ? appRecord.matterId : null,
       hearing_date: appRecord.date,
+      time: appRecord.time || null,
       court: appRecord.court || null,
       notes: appRecord.notes || null,
       outcome: appRecord.outcome || "Scheduled",
@@ -165,6 +202,21 @@ export function toDbRecord(tableName, appRecord) {
       currency: appRecord.currency || "AED",
       invoice_date: appRecord.date,
       status: appRecord.status || "Draft",
+    };
+  }
+  if (tableName === "chambers_profile") {
+    return {
+      id: "main",
+      chambers_name: appRecord.chambersName || null,
+      tagline: appRecord.tagline || null,
+      address_line: appRecord.addressLine || null,
+      bar_registry_no: appRecord.barRegistryNo || null,
+      phone: appRecord.phone || null,
+      email: appRecord.email || null,
+      account_name: appRecord.accountName || null,
+      bank_name: appRecord.bankName || null,
+      account_iban: appRecord.accountIban || null,
+      swift_code: appRecord.swiftCode || null,
     };
   }
   return appRecord;

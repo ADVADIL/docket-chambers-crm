@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Users, Briefcase, Gavel, Receipt, Plus, Search, 
   LayoutDashboard, CalendarDays, Clock, Cloud, CloudOff, Printer,
-  MessageSquare, Send, Radio, LogOut, UserCheck, ExternalLink
+  MessageSquare, Send, Radio, LogOut, UserCheck, ExternalLink, Landmark
 } from "lucide-react";
 import { getSupabaseClient, isSupabaseConfigured } from "./lib/supabase";
 import { SEED_DATA } from "./constants";
-import { toAppRecord, toDbRecord, daysUntil, printElement } from "./utils";
+import { toAppRecord, toDbRecord, daysUntil, printElement, uid } from "./utils";
 import { Btn, inputStyle } from "./components/UI";
 import Dashboard from "./components/Dashboard";
 import { ClientsTable, MattersTable, HearingsTable, BillingTable } from "./components/Tables";
@@ -20,6 +20,11 @@ import Auth from "./components/Auth";
 import DeadlinesTracker from "./components/DeadlinesTracker";
 import SpotlightSearch from "./components/SpotlightSearch";
 import InvoicePrintModal from "./components/InvoicePrintModal";
+import ChambersProfileModal from "./components/ChambersProfileModal";
+import MatterFile from "./components/MatterFile";
+import HearingBriefModal from "./components/HearingBriefModal";
+import ClientLedger from "./components/ClientLedger";
+import ChambersLockScreen from "./components/ChambersLockScreen";
 
 function useUniversalCollection(tableName, refreshTrigger) {
   const [items, setItems] = useState([]);
@@ -156,16 +161,24 @@ export default function App() {
   const mattersC = useUniversalCollection("matters", refreshKey);
   const hearingsC = useUniversalCollection("hearings", refreshKey);
   const billingC = useUniversalCollection("billing", refreshKey);
+  const profileC = useUniversalCollection("chambers_profile", refreshKey);
+  const chambersProfile = profileC.items.find((p) => p.id === "main") || profileC.items[0];
 
   const [tab, setTab] = useState("dashboard");
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null);
   const [commModal, setCommModal] = useState(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showChambersProfileModal, setShowChambersProfileModal] = useState(false);
   const [showWhatsAppConfigModal, setShowWhatsAppConfigModal] = useState(false);
   const [showSpotlight, setShowSpotlight] = useState(false);
   const [invoicePrintModal, setInvoicePrintModal] = useState(null);
   const [calendarView, setCalendarView] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
+
+  const [matterFileId, setMatterFileId] = useState(null);
+  const [clientLedgerId, setClientLedgerId] = useState(null);
+  const [hearingBrief, setHearingBrief] = useState(null);
+  const [locked, setLocked] = useState(false);
 
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -217,6 +230,37 @@ export default function App() {
     }
   }, [refreshKey]);
 
+  // Idle-timeout chambers lock: after 15 minutes without interaction, lock the session
+  // (client-side only — nothing is signed out, drafts stay exactly as they are).
+  useEffect(() => {
+    if (!session) return;
+    const IDLE_MS = 15 * 60 * 1000;
+    let timer = setTimeout(() => setLocked(true), IDLE_MS);
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setLocked(true), IDLE_MS);
+    };
+    const events = ["mousemove", "keydown", "click", "scroll"];
+    events.forEach((ev) => window.addEventListener(ev, reset));
+    return () => {
+      clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, reset));
+    };
+  }, [session]);
+
+  const handleUnlock = async (password) => {
+    const supabase = getSupabaseClient();
+    if (!supabase || !session?.user?.email) {
+      // No cloud auth configured — nothing to verify against, so just resume.
+      setLocked(false);
+      return { success: true };
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email: session.user.email, password });
+    if (error) return { success: false, error: error.message };
+    setLocked(false);
+    return { success: true };
+  };
+
   const handleSignOut = async () => {
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -224,6 +268,12 @@ export default function App() {
     }
     setSession(null);
   };
+
+  const handleSignOutFully = async () => {
+    setLocked(false);
+    await handleSignOut();
+  };
+
 
   const clientName = useCallback((id) => {
     const client = clientsC.items.find((c) => c.id === id);
@@ -236,6 +286,12 @@ export default function App() {
   }, [mattersC.items]);
 
   const closeModal = () => setModal(null);
+
+  const goToTab = (key) => {
+    setMatterFileId(null);
+    setClientLedgerId(null);
+    setTab(key);
+  };
 
   const handleDelete = (collection, id) => {
     if (!session) {
@@ -318,6 +374,26 @@ export default function App() {
     });
   };
 
+  const openClientFeeReminder = (client, bill) => {
+    const matter = bill ? mattersC.items.find((m) => m.id === bill.matterId) : null;
+    setCommModal({
+      type: "fee_reminder",
+      data: {
+        amount: bill?.amount || "",
+        currency: bill?.currency || "AED",
+        description: bill?.description || "Outstanding fee notes",
+        date: bill?.date || "",
+        status: bill?.status || "",
+        matterTitle: matter ? matter.title : "",
+        advocate: matter ? matter.advocate : "",
+        clientId: client.id,
+        clientName: client.name,
+        clientPhone: client.phone,
+        clientEmail: client.email,
+      }
+    });
+  };
+
   const openCauseListBroadcast = () => {
     const today = new Date().toISOString().split("T")[0];
     const todaysHearings = hearingsC.items
@@ -387,6 +463,40 @@ export default function App() {
       );
     }
 
+    if (matterFileId) {
+      const m = mattersC.items.find((x) => x.id === matterFileId);
+      if (!m) { setMatterFileId(null); return null; }
+      return (
+        <MatterFile
+          matter={m}
+          client={clientsC.items.find((c) => c.id === m.clientId)}
+          hearings={hearingsC.items}
+          billing={billingC.items}
+          onBack={() => setMatterFileId(null)}
+          onEdit={(record) => setModal({ type: "matters", record })}
+          onComm={openMatterComm}
+          onPrint={() => printElement("matter-file-printable", `Matter_${(m.caseNumber || m.title || "file").replace(/\s+/g, "_")}`)}
+          onOpenHearingBrief={(h) => setHearingBrief(h)}
+        />
+      );
+    }
+
+    if (clientLedgerId) {
+      const c = clientsC.items.find((x) => x.id === clientLedgerId);
+      if (!c) { setClientLedgerId(null); return null; }
+      return (
+        <ClientLedger
+          client={c}
+          matters={mattersC.items}
+          billing={billingC.items}
+          onBack={() => setClientLedgerId(null)}
+          onSendReminder={(client, bill) => openClientFeeReminder(client, bill)}
+          onPrint={() => printElement("client-ledger-printable", `Statement_${(c.name || "client").replace(/\s+/g, "_")}`)}
+          onNewFeeNote={() => setModal({ type: "billing", record: null })}
+        />
+      );
+    }
+
     switch (tab) {
       case "dashboard":
         return (
@@ -398,7 +508,7 @@ export default function App() {
             overdueInvoices={overdueInvoices}
             totalRevenue={totalRevenue}
             matterTitle={matterTitle}
-            goto={setTab}
+            goto={goToTab}
           />
         );
       case "clients":
@@ -409,6 +519,7 @@ export default function App() {
             onEdit={(r) => setModal({ type: "clients", record: r })} 
             onDelete={(id) => handleDelete(clientsC, id)} 
             onComm={openClientComm}
+            onOpenLedger={(c) => setClientLedgerId(c.id)}
           />
         );
       case "matters":
@@ -420,6 +531,7 @@ export default function App() {
             onEdit={(r) => setModal({ type: "matters", record: r })} 
             onDelete={(id) => handleDelete(mattersC, id)} 
             onComm={openMatterComm}
+            onOpenFile={(m) => setMatterFileId(m.id)}
           />
         );
       case "hearings":
@@ -432,6 +544,7 @@ export default function App() {
             onDelete={(id) => handleDelete(hearingsC, id)} 
             onPrint={printCauseList} 
             onComm={openHearingComm}
+            onOpenBrief={(h) => setHearingBrief(h)}
           />
         );
       case "deadlines":
@@ -449,10 +562,14 @@ export default function App() {
         return (
           <CalendarView 
             hearings={hearingsC.items} 
+            matters={mattersC.items}
             matterTitle={matterTitle} 
             calendarView={calendarView} 
             setCalendarView={setCalendarView} 
-            onEdit={(r) => setModal({ type: "hearings", record: r })} 
+            onEdit={(r) => setModal({ type: "hearings", record: r })}
+            onOpenHearingBrief={(h) => setHearingBrief(h)}
+            onBroadcastCauseList={openCauseListBroadcast}
+            onPrintCauseList={printCauseList}
           />
         );
       case "billing":
@@ -471,6 +588,7 @@ export default function App() {
         return null;
     }
   };
+
 
   // Confidential Chambers Lock: Block access completely until counsel signs in
   if (authLoading) {
@@ -508,8 +626,8 @@ export default function App() {
         ::-webkit-scrollbar-thumb:hover { background: #8A6D3B; }
         @media print {
           body * { visibility: hidden; }
-          #printable-area, #printable-area *, #invoice-printable-sheet, #invoice-printable-sheet *, #cause-list-printable-sheet, #cause-list-printable-sheet *, #billing-printable-sheet, #billing-printable-sheet * { visibility: visible; }
-          #invoice-printable-sheet, #cause-list-printable-sheet, #billing-printable-sheet, #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+          #printable-area, #printable-area *, #invoice-printable-sheet, #invoice-printable-sheet *, #cause-list-printable-sheet, #cause-list-printable-sheet *, #billing-printable-sheet, #billing-printable-sheet *, #matter-file-printable, #matter-file-printable *, #client-ledger-printable, #client-ledger-printable * { visibility: visible; }
+          #invoice-printable-sheet, #cause-list-printable-sheet, #billing-printable-sheet, #printable-area, #matter-file-printable, #client-ledger-printable { position: absolute; left: 0; top: 0; width: 100%; }
           .no-print, .rowbtn { display: none !important; }
         }
       `}</style>
@@ -533,7 +651,7 @@ export default function App() {
             return (
               <div
                 key={n.key}
-                onClick={() => setTab(n.key)}
+                onClick={() => goToTab(n.key)}
                 style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginBottom: 3,
                   borderRadius: 6, cursor: "pointer", fontSize: 13.5,
@@ -582,6 +700,30 @@ export default function App() {
             </div>
             <div style={{ fontSize: 10, color: "#8A93B0" }}>
               {isConnected ? "Real-time sync across laptops" : "Click to connect Supabase"}
+            </div>
+          </div>
+
+          <div 
+            onClick={() => setShowChambersProfileModal(true)}
+            title="Edit chambers name, address, and bank details printed on invoices"
+            style={{
+              marginTop: 8,
+              padding: "10px 12px", borderRadius: 6, cursor: "pointer",
+              background: "rgba(138, 147, 176, 0.14)",
+              border: "1px solid #8A93B044",
+              transition: "all 0.15s"
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(138, 147, 176, 0.24)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(138, 147, 176, 0.14)")}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "#E8D5B5", display: "flex", alignItems: "center", gap: 5 }}>
+                <Landmark size={13} />
+                Billing Profile
+              </span>
+            </div>
+            <div style={{ fontSize: 10, color: "#8A93B0" }}>
+              Chambers name, address & bank details
             </div>
           </div>
 
@@ -860,6 +1002,17 @@ export default function App() {
         />
       )}
 
+      {showChambersProfileModal && (
+        <ChambersProfileModal
+          profile={chambersProfile}
+          onClose={() => setShowChambersProfileModal(false)}
+          onSave={async (record) => {
+            await profileC.upsert(record);
+            triggerReload();
+          }}
+        />
+      )}
+
       {showWhatsAppConfigModal && (
         <WhatsAppConfigModal 
           onClose={() => setShowWhatsAppConfigModal(false)} 
@@ -891,6 +1044,7 @@ export default function App() {
             const m = mattersC.items.find((x) => x.id === invoicePrintModal.matterId);
             return m && c.id === m.clientId;
           })}
+          profile={chambersProfile}
           onClose={() => setInvoicePrintModal(null)}
         />
       )}
@@ -900,6 +1054,57 @@ export default function App() {
         <Auth 
           onClose={() => setShowAuthModal(false)} 
           onBypass={() => setShowAuthModal(false)} 
+        />
+      )}
+
+      {/* Hearing Brief & Outcome Recorder */}
+      {hearingBrief && (
+        <HearingBriefModal
+          hearing={hearingBrief}
+          matter={mattersC.items.find((m) => m.id === hearingBrief.matterId)}
+          onClose={() => setHearingBrief(null)}
+          onSave={async (hearingPatch, { createNext }, { updateDeadline }, notify) => {
+            if (!session) {
+              alert("🔒 Counsel Authentication Required:\nPlease sign in with chambers credentials to record a hearing outcome.");
+              setShowAuthModal(true);
+              return;
+            }
+            const updated = { ...hearingBrief, ...hearingPatch };
+            await hearingsC.upsert(updated);
+
+            if (createNext?.date) {
+              await hearingsC.upsert({
+                id: uid(),
+                matterId: hearingBrief.matterId,
+                date: createNext.date,
+                time: createNext.time || "",
+                court: hearingBrief.court,
+                notes: "",
+                outcome: "Scheduled",
+                orderNotes: "",
+              });
+            }
+
+            const matter = mattersC.items.find((m) => m.id === hearingBrief.matterId);
+            if (updateDeadline && matter) {
+              await mattersC.upsert({ ...matter, ...updateDeadline });
+            }
+
+            if (notify && matter) {
+              openMatterComm(matter);
+            }
+            triggerReload();
+          }}
+        />
+      )}
+
+      {/* Chambers Idle Lock */}
+      {locked && (
+        <ChambersLockScreen
+          session={session}
+          isConnected={isConnected}
+          onUnlock={handleUnlock}
+          onSignOutFully={handleSignOutFully}
         />
       )}
     </div>
