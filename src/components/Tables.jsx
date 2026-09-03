@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Users, Briefcase, Gavel, Receipt, Search, Edit3, Trash2, MessageSquare, Printer } from "lucide-react";
-import { MATTER_STATUSES, MATTER_COLORS, BILL_COLORS, COURTS } from "../constants";
+import { Users, Briefcase, Gavel, Receipt, Search, Edit3, Trash2, MessageSquare, Printer, UserPlus, ArrowRightCircle } from "lucide-react";
+import { MATTER_STATUSES, MATTER_COLORS, BILL_COLORS, COURTS, INQUIRY_COLORS } from "../constants";
 import { fmtDate, daysUntil, fmtCurrency } from "../utils";
 import { Badge, EmptyState } from "./UI";
 
@@ -284,6 +284,57 @@ export function BillingTable({ items = [], search = "", matterTitle = () => "—
         </tbody>
       </table>
       {filtered.length === 0 && search && <EmptyState icon={Search} title="No invoices found" sub={`No bills matching "${search}"`} />}
+    </div>
+  );
+}
+
+export function InquiriesTable({ items = [], search = "", onEdit, onDelete, onComm, onConvert }) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const query = (search || "").toLowerCase();
+  const filtered = safeItems.filter((i) => ((i.name || "") + (i.subject || "") + (i.practiceArea || "")).toLowerCase().includes(query));
+  if (safeItems.length === 0) return <EmptyState icon={UserPlus} title="No inquiries logged" sub="New prospective-client inquiries will appear here before they become a matter." />;
+  return (
+    <div style={{ background: "#FCFAF6", border: "1px solid #E4DFD3", borderRadius: 8, overflow: "hidden" }}>
+      <table>
+        <thead><tr><th>Name</th><th>Subject</th><th>Practice Area</th><th>Source</th><th>Status</th><th>Follow-up</th><th style={{ width: 140 }}></th></tr></thead>
+        <tbody>
+          {filtered.map((i) => (
+            <tr key={i.id}>
+              <td style={{ fontWeight: 600 }}>{i.name}</td>
+              <td style={{ color: "#8A8578" }}>{i.subject || "—"}</td>
+              <td>{i.practiceArea || "—"}</td>
+              <td style={{ color: "#8A8578" }}>{i.source || "—"}</td>
+              <td><Badge text={i.status || "New"} color={INQUIRY_COLORS[i.status] || "#8A8578"} /></td>
+              <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5 }}>{i.followUpDate ? fmtDate(i.followUpDate) : "—"}</td>
+              <td style={{ textAlign: "right" }}>
+                <div className="rowbtn" style={{ display: "inline-flex", gap: 2 }}>
+                  {onConvert && i.status !== "Converted" && (
+                    <button
+                      onClick={() => onConvert(i)}
+                      title="Convert to Matter"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#3D5A4C", padding: 4 }}
+                    >
+                      <ArrowRightCircle size={13.5} />
+                    </button>
+                  )}
+                  {onComm && (
+                    <button onClick={() => onComm(i)} title="Contact" style={{ background: "none", border: "none", cursor: "pointer", color: "#8A8578", padding: 4 }}>
+                      <MessageSquare size={13.5} />
+                    </button>
+                  )}
+                  <button onClick={() => onEdit(i)} title="Edit" style={{ background: "none", border: "none", cursor: "pointer", color: "#8A8578", padding: 4 }}>
+                    <Edit3 size={13.5} />
+                  </button>
+                  <button onClick={() => onDelete(i.id)} title="Delete" style={{ background: "none", border: "none", cursor: "pointer", color: "#8A8578", padding: 4 }}>
+                    <Trash2 size={13.5} />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {filtered.length === 0 && search && <EmptyState icon={Search} title="No matches found" sub={`No inquiries matching "${search}"`} />}
     </div>
   );
 }

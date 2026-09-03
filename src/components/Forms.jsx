@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MATTER_STATUSES, BILL_STATUSES, PRACTICE_AREAS, COURTS, STATUTORY_DEADLINE_TYPES } from "../constants";
+import { MATTER_STATUSES, BILL_STATUSES, PRACTICE_AREAS, COURTS, STATUTORY_DEADLINE_TYPES, INQUIRY_STATUSES, INQUIRY_SOURCES } from "../constants";
 import { uid, todayISO } from "../utils";
 import { Modal, Field, Btn, inputStyle } from "./UI";
 
@@ -253,6 +253,81 @@ export function BillingForm({ record, matters = [], onClose, onSave }) {
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
         <Btn onClick={() => validate() && onSave({ ...f, amount: Number(f.amount) || 0 })}>Save Invoice</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+export function InquiryForm({ record, onClose, onSave }) {
+  const [f, setF] = useState(record || {
+    id: uid(),
+    name: "",
+    phone: "",
+    email: "",
+    subject: "",
+    practiceArea: PRACTICE_AREAS[0],
+    source: INQUIRY_SOURCES[0],
+    status: "New",
+    notes: "",
+    followUpDate: "",
+  });
+  const [errors, setErrors] = useState({});
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  const validate = () => {
+    const newErrors = {};
+    if (!f.name.trim()) newErrors.name = "Name is required";
+    if (f.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) newErrors.email = "Invalid email address";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  return (
+    <Modal title={record ? "Edit Inquiry" : "New Client Inquiry"} onClose={onClose}>
+      <Field label="Name *" error={errors.name}>
+        <input style={{ ...inputStyle, borderColor: errors.name ? "#6B2737" : "#D9D2C2" }} value={f.name} onChange={set("name")} autoFocus placeholder="Prospective client name" />
+      </Field>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Phone / Mobile"><input style={inputStyle} value={f.phone} onChange={set("phone")} placeholder="+971 5X XXX XXXX" /></Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="Email" error={errors.email}><input style={{ ...inputStyle, borderColor: errors.email ? "#6B2737" : "#D9D2C2" }} value={f.email} onChange={set("email")} placeholder="client@email.com" /></Field>
+        </div>
+      </div>
+      <Field label="Subject / What they need"><input style={inputStyle} value={f.subject} onChange={set("subject")} placeholder="e.g. Land title dispute, contract review" /></Field>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Practice Area">
+            <select style={inputStyle} value={f.practiceArea} onChange={set("practiceArea")}>
+              {PRACTICE_AREAS.map((a) => (<option key={a} value={a}>{a}</option>))}
+            </select>
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="Source">
+            <select style={inputStyle} value={f.source} onChange={set("source")}>
+              {INQUIRY_SOURCES.map((s) => (<option key={s} value={s}>{s}</option>))}
+            </select>
+          </Field>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Status">
+            <select style={inputStyle} value={f.status} onChange={set("status")}>
+              {INQUIRY_STATUSES.map((s) => (<option key={s} value={s}>{s}</option>))}
+            </select>
+          </Field>
+        </div>
+        <div style={{ flex: 1 }}>
+          <Field label="Follow-up Date"><input type="date" style={inputStyle} value={f.followUpDate || ""} onChange={set("followUpDate")} /></Field>
+        </div>
+      </div>
+      <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: 65, resize: "vertical" }} value={f.notes} onChange={set("notes")} placeholder="Consultation notes, conflict check, initial assessment..." /></Field>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => validate() && onSave(f)}>Save Inquiry</Btn>
       </div>
     </Modal>
   );

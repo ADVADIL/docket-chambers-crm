@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
-  Search, Briefcase, Users, Gavel, Receipt, 
-  ArrowRight, X, Clock, Calendar, Shield, Hash
+  Search, Briefcase, Users, Gavel, Receipt, UserPlus,
+  ArrowRight
 } from "lucide-react";
 import { fmtDate, fmtCurrency } from "../utils";
 
@@ -12,6 +12,7 @@ export default function SpotlightSearch({
   clients = [],
   hearings = [],
   billing = [],
+  inquiries = [],
   onSelectResult
 }) {
   const [query, setQuery] = useState("");
@@ -42,8 +43,9 @@ export default function SpotlightSearch({
   const safeClients = Array.isArray(clients) ? clients : [];
   const safeHearings = Array.isArray(hearings) ? hearings : [];
   const safeBilling = Array.isArray(billing) ? billing : [];
+  const safeInquiries = Array.isArray(inquiries) ? inquiries : [];
 
-  // Filtered results across all 4 collections
+  // Filtered results across all collections
   const matchedMatters = q ? safeMatters.filter((m) => m && (
     (m.title && m.title.toLowerCase().includes(q)) ||
     (m.caseNumber && m.caseNumber.toLowerCase().includes(q)) ||
@@ -71,7 +73,14 @@ export default function SpotlightSearch({
     (b.amount && String(b.amount).includes(q))
   )).slice(0, 5) : [];
 
-  const totalResults = matchedMatters.length + matchedClients.length + matchedHearings.length + matchedBilling.length;
+  const matchedInquiries = q ? safeInquiries.filter((i) => i && (
+    (i.name && i.name.toLowerCase().includes(q)) ||
+    (i.subject && i.subject.toLowerCase().includes(q)) ||
+    (i.practiceArea && i.practiceArea.toLowerCase().includes(q)) ||
+    (i.phone && i.phone.toLowerCase().includes(q))
+  )).slice(0, 5) : [];
+
+  const totalResults = matchedMatters.length + matchedClients.length + matchedHearings.length + matchedBilling.length + matchedInquiries.length;
 
   return (
     <div style={{
@@ -194,6 +203,41 @@ export default function SpotlightSearch({
               )}
 
               {/* Clients */}
+              {matchedInquiries.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: "#6B6255", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                    <UserPlus size={12} color="#B08D57" /> Inquiries ({matchedInquiries.length})
+                  </div>
+                  {matchedInquiries.map((i) => (
+                    <div
+                      key={i.id}
+                      onClick={() => onSelectResult("inquiries", i)}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        background: "#FFFFFF",
+                        border: "1px solid #EFEBE1",
+                        marginBottom: 4,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between"
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#FBF9F4")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#FFFFFF")}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2333" }}>{i.name}</div>
+                        <div style={{ fontSize: 11, color: "#8A8578", marginTop: 2 }}>
+                          {i.subject ? `${i.subject} • ` : ""}{i.status || "New"}
+                        </div>
+                      </div>
+                      <ArrowRight size={13} color="#8A8578" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {matchedClients.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 10.5, fontWeight: 700, color: "#6B6255", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>

@@ -142,6 +142,22 @@ export function toAppRecord(tableName, dbRow) {
       bankName: dbRow.bank_name || dbRow.bankName || "",
       accountIban: dbRow.account_iban || dbRow.accountIban || "",
       swiftCode: dbRow.swift_code || dbRow.swiftCode || "",
+      upiId: dbRow.upi_id || dbRow.upiId || "",
+    };
+  }
+  if (tableName === "inquiries") {
+    return {
+      id: dbRow.id,
+      name: dbRow.name || "",
+      phone: dbRow.phone || "",
+      email: dbRow.email || "",
+      subject: dbRow.subject || "",
+      practiceArea: dbRow.practice_area || dbRow.practiceArea || "",
+      source: dbRow.source || "",
+      status: dbRow.status || "New",
+      notes: dbRow.notes || "",
+      followUpDate: dbRow.follow_up_date || dbRow.followUpDate || "",
+      convertedMatterId: dbRow.converted_matter_id || dbRow.convertedMatterId || "",
     };
   }
   return dbRow;
@@ -178,6 +194,15 @@ export function toDbRecord(tableName, appRecord) {
       case_number: appRecord.caseNumber || null,
       court_complex: appRecord.court || appRecord.courtComplex || null,
       priority: appRecord.priority || "Normal",
+      // BUGFIX: these were previously omitted, so any statutory deadline
+      // set in MatterForm was shown locally but never actually saved to
+      // Supabase — it vanished on refresh. Requires migration_002 to add
+      // the matching columns before this will persist.
+      deadline_date: appRecord.deadlineDate || null,
+      deadline_type: appRecord.deadlineType || null,
+      deadline_statute: appRecord.deadlineStatute || null,
+      deadline_notes: appRecord.deadlineNotes || null,
+      deadline_completed: appRecord.deadlineCompleted || false,
     };
   }
   if (tableName === "hearings") {
@@ -217,6 +242,22 @@ export function toDbRecord(tableName, appRecord) {
       bank_name: appRecord.bankName || null,
       account_iban: appRecord.accountIban || null,
       swift_code: appRecord.swiftCode || null,
+      upi_id: appRecord.upiId || null,
+    };
+  }
+  if (tableName === "inquiries") {
+    return {
+      id: recordId,
+      name: appRecord.name,
+      phone: appRecord.phone || null,
+      email: appRecord.email || null,
+      subject: appRecord.subject || null,
+      practice_area: appRecord.practiceArea || null,
+      source: appRecord.source || null,
+      status: appRecord.status || "New",
+      notes: appRecord.notes || null,
+      follow_up_date: appRecord.followUpDate || null,
+      converted_matter_id: appRecord.convertedMatterId && uuidRegex.test(appRecord.convertedMatterId) ? appRecord.convertedMatterId : null,
     };
   }
   return appRecord;

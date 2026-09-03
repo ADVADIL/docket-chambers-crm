@@ -17,6 +17,19 @@ export const BILL_COLORS = {
   Overdue: "#6B2737",
 };
 
+export const INQUIRY_STATUSES = ["New", "Contacted", "Consultation Scheduled", "Converted", "Declined", "Lost"];
+
+export const INQUIRY_COLORS = {
+  New: "#B08D57",
+  Contacted: "#8A6D3B",
+  "Consultation Scheduled": "#3D6B8A",
+  Converted: "#3D5A4C",
+  Declined: "#8A8578",
+  Lost: "#6B2737",
+};
+
+export const INQUIRY_SOURCES = ["Referral", "Website", "Walk-in", "Phone", "WhatsApp", "Social Media", "Other"];
+
 export const PRACTICE_AREAS = [
   "Civil Litigation",
   "Criminal Defense",
