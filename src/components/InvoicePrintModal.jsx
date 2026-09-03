@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Printer, Download, X, Gavel, ShieldCheck, Mail, Phone, Building } from "lucide-react";
+import QRCode from "qrcode";
 import { Modal, Btn } from "./UI";
 import { fmtDate, fmtCurrency, printElement } from "../utils";
 
@@ -10,12 +11,33 @@ export default function InvoicePrintModal({
   profile,
   onClose
 }) {
+  const [upiQrUrl, setUpiQrUrl] = useState("");
+
+  const currency = bill?.currency || "AED";
+  const amount = Number(bill?.amount) || 0;
+  const upiId = profile?.upiId || "";
+  const showUpiQr = currency === "INR" && Boolean(upiId) && amount > 0;
+
+  useEffect(() => {
+    if (!showUpiQr) {
+      setUpiQrUrl("");
+      return;
+    }
+    const payeeName = profile?.chambersName || profile?.accountName || "Chambers";
+    const invoiceRef = bill?.invoiceNo || `CHN-${(bill?.id || "").slice(0, 8).toUpperCase() || "2026-01"}`;
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Invoice ${invoiceRef}`)}`;
+    let cancelled = false;
+    QRCode.toDataURL(upiUrl, { width: 140, margin: 1 })
+      .then((url) => { if (!cancelled) setUpiQrUrl(url); })
+      .catch(() => { if (!cancelled) setUpiQrUrl(""); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showUpiQr, upiId, amount, bill?.invoiceNo, bill?.id, profile?.chambersName, profile?.accountName]);
+
   if (!bill) return null;
 
   const invoiceNo = bill.invoiceNo || `CHN-${(bill.id || "").slice(0, 8).toUpperCase() || "2026-01"}`;
   const invoiceDate = fmtDate(bill.invoiceDate || bill.date || new Date());
-  const currency = bill.currency || "AED";
-  const amount = Number(bill.amount) || 0;
 
   // Chambers billing profile — falls back to sensible defaults if not yet configured
   const chambersName = profile?.chambersName || "CHAMBERS OF ADV. MOHAMED ADIL";
@@ -170,7 +192,7 @@ export default function InvoicePrintModal({
           </table>
 
           {/* Wire & Bank Instructions */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20, paddingTop: 16, borderTop: "1px solid #DDD", fontSize: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: showUpiQr ? "1.1fr 0.7fr 1fr" : "1.3fr 1fr", gap: 20, paddingTop: 16, borderTop: "1px solid #DDD", fontSize: 12 }}>
             <div>
               <div style={{ fontWeight: "bold", marginBottom: 4, textTransform: "uppercase", fontSize: 11.5, color: "#444" }}>
                 CHAMBERS WIRE & REMITTANCE INSTRUCTIONS:
@@ -181,6 +203,23 @@ export default function InvoicePrintModal({
               <div><strong>SWIFT / BIC:</strong> {swiftCode}</div>
               <div style={{ color: "#666", marginTop: 4 }}>Please quote Invoice No. <strong>{invoiceNo}</strong> in transfer description.</div>
             </div>
+
+            {showUpiQr && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontWeight: "bold", marginBottom: 6, textTransform: "uppercase", fontSize: 11.5, color: "#444" }}>
+                  Scan to Pay (UPI)
+                </div>
+                {upiQrUrl ? (
+                  <img src={upiQrUrl} alt="UPI payment QR code" style={{ width: 110, height: 110 }} />
+                ) : (
+                  <div style={{ width: 110, height: 110, margin: "0 auto", border: "1px dashed #CCC", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#999" }}>
+                    Generating...
+                  </div>
+                )}
+                <div style={{ fontSize: 10.5, color: "#666", marginTop: 6, wordBreak: "break-all" }}>{upiId}</div>
+                <div style={{ fontSize: 15, fontWeight: "bold", color: "#6B2737", marginTop: 2 }}>{fmtCurrency(amount, "INR")}</div>
+              </div>
+            )}
 
             <div style={{ textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center" }}>
               <div style={{ width: 160, borderBottom: "1px solid #1C2333", marginBottom: 6 }} />

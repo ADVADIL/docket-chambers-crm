@@ -2,16 +2,16 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Users, Briefcase, Gavel, Receipt, Plus, Search, 
   LayoutDashboard, CalendarDays, Clock, Cloud, CloudOff, Printer,
-  MessageSquare, Send, Radio, LogOut, UserCheck, ExternalLink, Landmark
+  MessageSquare, Send, LogOut, UserCheck, ExternalLink, Landmark, UserPlus
 } from "lucide-react";
 import { getSupabaseClient, isSupabaseConfigured } from "./lib/supabase";
-import { SEED_DATA } from "./constants";
-import { toAppRecord, toDbRecord, daysUntil, printElement, uid } from "./utils";
+import { SEED_DATA, COURTS, PRACTICE_AREAS, STATUTORY_DEADLINE_TYPES } from "./constants";
+import { toAppRecord, toDbRecord, daysUntil, todayISO, printElement, uid } from "./utils";
 import { Btn, inputStyle } from "./components/UI";
 import Dashboard from "./components/Dashboard";
-import { ClientsTable, MattersTable, HearingsTable, BillingTable } from "./components/Tables";
+import { ClientsTable, MattersTable, HearingsTable, BillingTable, InquiriesTable } from "./components/Tables";
 import CalendarView from "./components/CalendarView";
-import { ClientForm, MatterForm, HearingForm, BillingForm } from "./components/Forms";
+import { ClientForm, MatterForm, HearingForm, BillingForm, InquiryForm } from "./components/Forms";
 import ChamberConfigModal from "./components/ChamberConfigModal";
 import ClientCommModal from "./components/ClientCommModal";
 import WhatsAppConfigModal from "./components/WhatsAppConfigModal";
@@ -161,6 +161,7 @@ export default function App() {
   const mattersC = useUniversalCollection("matters", refreshKey);
   const hearingsC = useUniversalCollection("hearings", refreshKey);
   const billingC = useUniversalCollection("billing", refreshKey);
+  const inquiriesC = useUniversalCollection("inquiries", refreshKey);
   const profileC = useUniversalCollection("chambers_profile", refreshKey);
   const chambersProfile = profileC.items.find((p) => p.id === "main") || profileC.items[0];
 
@@ -337,6 +338,74 @@ export default function App() {
     });
   };
 
+  const openInquiryComm = (inquiry) => {
+    setCommModal({
+      type: "custom_advisory",
+      data: {
+        clientId: "",
+        clientName: inquiry.name,
+        clientPhone: inquiry.phone,
+        clientEmail: inquiry.email,
+      }
+    });
+  };
+
+  // Converts an inquiry into a real Client + Matter in one step, then marks
+  // the inquiry as Converted and links it to the new matter. Opens the
+  // matter form pre-filled so the advocate can confirm/complete details
+  // (court, case number, practice area) before it's saved.
+  const convertInquiryToMatter = async (inquiry) => {
+    if (!session && isConnected) {
+      alert("🔒 Counsel Authentication Required:\nPlease sign in with chambers credentials to convert an inquiry.");
+      setShowAuthModal(true);
+      return;
+    }
+
+    let clientId = "";
+    const existingClient = clientsC.items.find(
+      (c) => (inquiry.email && c.email && c.email.toLowerCase() === inquiry.email.toLowerCase())
+        || (inquiry.phone && c.phone && c.phone === inquiry.phone)
+    );
+
+    if (existingClient) {
+      clientId = existingClient.id;
+    } else {
+      const newClient = {
+        id: uid(),
+        name: inquiry.name,
+        company: "",
+        email: inquiry.email || "",
+        phone: inquiry.phone || "",
+        notes: `Converted from inquiry logged ${todayISO()}.`,
+      };
+      await clientsC.upsert(newClient);
+      clientId = newClient.id;
+    }
+
+    await inquiriesC.upsert({ ...inquiry, status: "Converted" });
+    triggerReload();
+
+    setModal({
+      type: "matters",
+      record: {
+        id: uid(),
+        title: inquiry.subject ? `${inquiry.name} — ${inquiry.subject}` : inquiry.name,
+        clientId,
+        caseNumber: "",
+        court: COURTS[0] || "",
+        practiceArea: inquiry.practiceArea || PRACTICE_AREAS[0],
+        advocate: "",
+        status: "Intake",
+        filingDate: todayISO(),
+        deadlineDate: "",
+        deadlineType: STATUTORY_DEADLINE_TYPES[0],
+        deadlineNotes: "",
+        notes: inquiry.notes || "",
+        _fromInquiryId: inquiry.id,
+      }
+    });
+  };
+
   const openMatterComm = (matter) => {
     const client = clientsC.items.find((c) => c.id === matter.clientId);
     setCommModal({
@@ -418,7 +487,7 @@ export default function App() {
     });
   };
 
-  const allLoaded = clientsC.loaded && mattersC.loaded && hearingsC.loaded && billingC.loaded;
+  const allLoaded = clientsC.loaded && mattersC.loaded && hearingsC.loaded && billingC.loaded && inquiriesC.loaded;
 
   const upcomingHearings = useMemo(() => {
     return hearingsC.items
@@ -433,8 +502,11 @@ export default function App() {
     return billingC.items.filter((b) => b.status === "Paid").reduce((sum, b) => sum + Number(b.amount || 0), 0);
   }, [billingC.items]);
 
+  const openInquiries = useMemo(() => inquiriesC.items.filter((i) => i.status !== "Converted" && i.status !== "Declined" && i.status !== "Lost"), [inquiriesC.items]);
+
   const nav = [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "inquiries", label: "Inquiries", icon: UserPlus, count: openInquiries.length },
     { key: "clients", label: "Clients", icon: Users, count: clientsC.items.length },
     { key: "matters", label: "Matters", icon: Briefcase, count: mattersC.items.length },
     { key: "hearings", label: "Hearings", icon: Gavel, count: upcomingHearings.length },
@@ -509,6 +581,17 @@ export default function App() {
             totalRevenue={totalRevenue}
             matterTitle={matterTitle}
             goto={goToTab}
+          />
+        );
+      case "inquiries":
+        return (
+          <InquiriesTable
+            items={inquiriesC.items}
+            search={search}
+            onEdit={(r) => setModal({ type: "inquiries", record: r })}
+            onDelete={(id) => handleDelete(inquiriesC, id)}
+            onComm={openInquiryComm}
+            onConvert={convertInquiryToMatter}
           />
         );
       case "clients":
@@ -839,6 +922,7 @@ export default function App() {
               </div>
               <div style={{ fontSize: 12.5, color: "#8A8578", marginTop: 2 }}>
                 {tab === "dashboard" && "Chambers practice health, court listings, and real-time realization"}
+                {tab === "inquiries" && "Prospective client inquiries, prior to intake as a formal matter"}
                 {tab === "clients" && "Client retainers, companies, and direct contact details"}
                 {tab === "matters" && "Case records, assigned advocates, and procedural stages"}
                 {tab === "hearings" && "Daily cause list, court benches, and hearing agenda"}
@@ -901,7 +985,7 @@ export default function App() {
                 <MessageSquare size={14} /> Notify Client
               </Btn>
               {tab !== "dashboard" && tab !== "calendar" && tab !== "deadlines" && (
-                <Btn onClick={() => setModal({ type: tab, record: null })}><Plus size={15} /> Add {tab.slice(0, -1)}</Btn>
+                <Btn onClick={() => setModal({ type: tab, record: null })}><Plus size={15} /> Add {tab === "inquiries" ? "Inquiry" : tab.slice(0, -1)}</Btn>
               )}
               {tab === "deadlines" && (
                 <Btn onClick={() => setModal({ type: "matters", record: null })} style={{ background: "#6B2737", color: "#FFF" }}>
@@ -919,6 +1003,22 @@ export default function App() {
           {renderContent()}
         </div>
       </div>
+
+      {modal?.type === "inquiries" && (
+        <InquiryForm
+          record={modal.record}
+          onClose={closeModal}
+          onSave={(r) => {
+            if (!session && isConnected) {
+              alert("🔒 Counsel Authentication Required:\nPlease sign in with chambers credentials to save or edit inquiries.");
+              setShowAuthModal(true);
+              return;
+            }
+            inquiriesC.upsert(r);
+            closeModal();
+          }}
+        />
+      )}
 
       {modal?.type === "clients" && (
         <ClientForm 
@@ -946,7 +1046,12 @@ export default function App() {
               setShowAuthModal(true);
               return;
             }
-            mattersC.upsert(r); 
+            const { _fromInquiryId, ...matterRecord } = r;
+            mattersC.upsert(matterRecord);
+            if (_fromInquiryId) {
+              const inquiry = inquiriesC.items.find((i) => i.id === _fromInquiryId);
+              if (inquiry) inquiriesC.upsert({ ...inquiry, status: "Converted", convertedMatterId: matterRecord.id });
+            }
             closeModal(); 
           }} 
         />
@@ -1028,6 +1133,7 @@ export default function App() {
         clients={clientsC.items}
         hearings={hearingsC.items}
         billing={billingC.items}
+        inquiries={inquiriesC.items}
         onSelectResult={(collection, item) => {
           setShowSpotlight(false);
           setTab(collection);

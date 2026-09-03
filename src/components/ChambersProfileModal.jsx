@@ -14,6 +14,7 @@ export default function ChambersProfileModal({ profile, onClose, onSave }) {
     bankName: profile?.bankName || "",
     accountIban: profile?.accountIban || "",
     swiftCode: profile?.swiftCode || "",
+    upiId: profile?.upiId || "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -75,6 +76,13 @@ export default function ChambersProfileModal({ profile, onClose, onSave }) {
           <input style={inputStyle} value={form.swiftCode} onChange={set("swiftCode")} placeholder="ENBDAEADXXX" />
         </Field>
       </div>
+
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#6B2737", textTransform: "uppercase", letterSpacing: 0.5, margin: "18px 0 10px" }}>
+        UPI Payment (India Invoices)
+      </div>
+      <Field label="UPI ID" sub="When set, INR invoices show a scannable UPI QR code the client can pay directly with any UPI app">
+        <input style={inputStyle} value={form.upiId} onChange={set("upiId")} placeholder="advmohamedadil@okicici" />
+      </Field>
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
